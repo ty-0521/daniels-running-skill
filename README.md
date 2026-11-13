@@ -1,5 +1,7 @@
 # daniels-running-skill
 
+[![CI](https://github.com/ty-0521/daniels-running-skill/actions/workflows/ci.yml/badge.svg)](https://github.com/ty-0521/daniels-running-skill/actions/workflows/ci.yml)
+
 《丹尼尔斯经典跑步训练法（第3版）》的可验证知识库。
 
 给 agent 用的训练分析引擎：输入一次比赛成绩，输出可执行的配速、训练量上限和周期安排，
