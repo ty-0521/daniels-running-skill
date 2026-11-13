@@ -438,6 +438,42 @@ TOPICS: Dict[str, Topic] = {
         sources=("第2章 L1016-L1028", "第2章 L1042"),
         related=("cadence-180",),
     ),
+    "restart-after-break": Topic(
+        topic_id="restart-after-break",
+        question="停训或受伤中断之后，怎么接回来？",
+        keywords=(
+            "中断", "停训", "停练", "断训", "伤后", "休息一段", "接回来", "重启",
+            "恢复训练", "多久没跑",
+        ),
+        answer=(
+            "不要想着「把缺的补回来」——书里把这件事说得很直接："
+            "对休息过一阵的跑者来说，最糟糕的事情莫过于抱着补偿失去的时间的想法"
+            "去进行要求较高的训练。它给的办法是退回编号系统的起点：按图 6—2 的顺序"
+            "把基础周补回来，再谈质量。同一页还有一句值得记住——"
+            "状态稍微欠佳但是身体健康，始终好过因为训练过度或者生病而没法比赛。"
+            "接回来之后，先把当前跑量稳住 4~6 周，再按每 3~4 周每次加 1.6 公里的节奏往上走。"
+        ),
+        sources=("第6章 L2071", "第2章 L934", "第11章 L2956"),
+        related=("why-hold-4-weeks", "why-rest-is-training"),
+        computed_by="growth_path",
+    ),
+    "no-periodic-deload": Topic(
+        topic_id="no-periodic-deload",
+        question="「每四周减量一周」这个安排，书里怎么说的？",
+        keywords=(
+            "减量", "减量周", "周期性", "恢复周", "每四周", "减多少", "加回来",
+        ),
+        answer=(
+            "书里没有这个概念。全书的减量只有两类：**赛前减量**和**赛后恢复**，"
+            "没有任何「每 N 周减 X%」的周期性减量。所以 daniels.deload 只给算术——"
+            "哪几周减、各强度的上限变成多少、加到目标跑量要多少周、周表有没有违规——"
+            "不生成周表；引用之前必须先说明这是外推，不是书中规则。"
+            "赛前减量的具体规则见第 14 章。"
+        ),
+        sources=("第14章 L3496",),
+        related=("why-hold-4-weeks", "why-rest-is-training"),
+        computed_by="deload_weeks",
+    ),
 }
 
 
@@ -514,3 +550,63 @@ def search(query: str, limit: int = 3) -> List[Topic]:
 
     scored.sort(key=lambda item: (-item[0], item[1].topic_id))
     return [topic for _, topic in scored[:limit]]
+
+
+def _bigrams(text: str) -> set:
+    """去掉空白后切成双字组。零依赖的粗粒度相似度就靠它。"""
+    cleaned = "".join(ch for ch in text.lower() if not ch.isspace())
+    if len(cleaned) < 2:
+        return {cleaned} if cleaned else set()
+    return {cleaned[i : i + 2] for i in range(len(cleaned) - 1)}
+
+
+def closeness(query: str, haystack: str) -> float:
+    """查询里有几成的双字组出现在候选文本里。0~1。"""
+    left, right = _bigrams(query), _bigrams(haystack)
+    if not left or not right:
+        return 0.0
+    return len(left & right) / len(left)
+
+
+def did_you_mean(
+    query: str, limit: int = 2, min_score: float = 0.3
+) -> Tuple[Topic, ...]:
+    """没有精确命中时，给几个**字面相近**的词条当提示。
+
+    这不是检索，是「你是不是想问」。``search`` 返回空是对的——
+    空就代表没命中，不该为了好看硬凑。但只说「没有」对用户没帮助，
+    所以单独给一个提示函数，让调用方自己决定要不要印出来。
+
+    相似度只看双字组重合比例：问到「乳酸奶值」（打错「乳酸阈值」）时，
+    能靠「乳酸」两个字找到 ``t-comfortably-hard``。
+
+    Parameters
+    ----------
+    query : str
+        用户原话。
+    limit : int, optional
+        最多给几条，默认 2。
+    min_score : float, optional
+        相似度门槛，默认 0.3。**这个参数是关键**：没有门槛的话，
+        「减量周之后怎么加回来」会提示「跑步时该怎么呼吸」——
+        一个错误的提示比没有提示更糟。0.3 是实测出来的：
+        打错一个字（「乳酸奶值」）能救回来，纯噪音会被滤掉。
+
+    Returns
+    -------
+    tuple of Topic
+        按相似度降序；没有够格的候选时返回空元组。
+    """
+    if not isinstance(query, str):
+        raise TypeError(f"query 必须是字符串，收到 {type(query).__name__}")
+    if limit <= 0:
+        raise ValueError(f"limit 必须为正，收到 {limit}")
+
+    scored: List[Tuple[float, Topic]] = []
+    for topic in TOPICS.values():
+        haystack = " ".join([topic.topic_id, topic.question, *topic.keywords])
+        score = closeness(query, haystack)
+        if score >= min_score:
+            scored.append((score, topic))
+    scored.sort(key=lambda item: (-item[0], item[1].topic_id))
+    return tuple(topic for _, topic in scored[:limit])

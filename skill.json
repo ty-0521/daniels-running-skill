@@ -415,6 +415,13 @@
       ]
     },
     {
+      "topic_id": "no-periodic-deload",
+      "question": "「每四周减量一周」这个安排，书里怎么说的？",
+      "sources": [
+        "第14章 L3496"
+      ]
+    },
+    {
       "topic_id": "no-short-race-prediction",
       "question": "能用短距离成绩去预测长距离吗？",
       "sources": [
@@ -429,6 +436,15 @@
       "sources": [
         "第12章 L3154",
         "第12章 L3156"
+      ]
+    },
+    {
+      "topic_id": "restart-after-break",
+      "question": "停训或受伤中断之后，怎么接回来？",
+      "sources": [
+        "第6章 L2071",
+        "第2章 L934",
+        "第11章 L2956"
       ]
     },
     {

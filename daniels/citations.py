@@ -257,6 +257,34 @@ def search_citations(query: str, limit: int = 3) -> List[Citation]:
     return [item for _, item in scored[:limit]]
 
 
+def did_you_mean(
+    query: str, limit: int = 2, min_score: float = 0.3
+) -> Tuple[Citation, ...]:
+    """没有精确命中时给几个字面相近的出处，供调用方提示。
+
+    和 :func:`search_citations` 分开：那个是检索，空就是空；
+    这个是「你是不是想问」，只在没命中时才用得上。
+
+    相似度算法与 ``explain.did_you_mean`` 共用（双字组重合比例），
+    免得两个模块各写一套、行为还不一样。
+    """
+    from .explain import closeness
+
+    if not isinstance(query, str):
+        raise TypeError(f"query 必须是字符串，收到 {type(query).__name__}")
+    if limit <= 0:
+        raise ValueError(f"limit 必须为正，收到 {limit}")
+
+    scored: List[Tuple[float, Citation]] = []
+    for item in citations():
+        haystack = " ".join([item.key, item.summary, _haystack(item)])
+        score = closeness(query, haystack)
+        if score >= min_score:
+            scored.append((score, item))
+    scored.sort(key=lambda pair: (-pair[0], pair[1].key))
+    return tuple(item for _, item in scored[:limit])
+
+
 def audit_record() -> Dict[str, object]:
     """把核对记录导成可序列化结构，供 ``manifest()`` 与 CLI 使用。"""
     return {

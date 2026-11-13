@@ -52,6 +52,7 @@ from .citations import (  # noqa: F401
     audit_record,
     cite,
     citations,
+    did_you_mean as citations_did_you_mean,
     search_citations,
 )
 from .dates import (  # noqa: F401
@@ -77,6 +78,7 @@ from .deload import (  # noqa: F401
 from .explain import (  # noqa: F401
     TOPICS,
     Topic,
+    did_you_mean as explain_did_you_mean,
     explain as explain_topic,
     search,
     topic_ids,
@@ -242,6 +244,7 @@ __all__ = [
     "audit_record",
     "cite",
     "citations",
+    "citations_did_you_mean",
     "search_citations",
     # intake 层
     "FIELD_BY_KEY",
@@ -254,6 +257,7 @@ __all__ = [
     # explain 层
     "TOPICS",
     "Topic",
+    "explain_did_you_mean",
     "explain_topic",
     "search",
     "topic_ids",

@@ -238,6 +238,83 @@ class TestAuditKwargs(unittest.TestCase):
             d.WeekEntry(week=0, weekly_km=30.0)
 
 
+class TestDidYouMean(unittest.TestCase):
+    """没命中时给的候选：错别字要救得回来，噪音要滤得掉。
+
+    没有门槛的话，「减量周之后怎么加回来」会提示「跑步时该怎么呼吸」——
+    一个错误的提示比没有提示更糟。
+    """
+
+    def test_typo_still_finds_the_topic(self) -> None:
+        hits = d.explain_did_you_mean("乳酸奶值")
+        self.assertIn("t-comfortably-hard", [t.topic_id for t in hits])
+
+    def test_noise_yields_nothing(self) -> None:
+        self.assertEqual(d.explain_did_you_mean("量子力学与红烧肉"), ())
+
+    def test_min_score_is_respected(self) -> None:
+        loose = d.explain_did_you_mean("减量周之后怎么加回来", min_score=0.0)
+        strict = d.explain_did_you_mean("减量周之后怎么加回来")
+        self.assertGreaterEqual(len(loose), len(strict))
+
+    def test_citations_have_the_same_guard(self) -> None:
+        self.assertTrue(d.citations_did_you_mean("乳酸奶值"))
+        self.assertEqual(d.citations_did_you_mean("量子力学与红烧肉"), ())
+
+    def test_bad_input(self) -> None:
+        with self.assertRaises(TypeError):
+            d.explain_did_you_mean(123)  # type: ignore[arg-type]
+        with self.assertRaises(ValueError):
+            d.explain_did_you_mean("x", limit=0)
+
+
+class TestNewTopics(unittest.TestCase):
+    """两条补上的运营性词条。"""
+
+    def test_restart_after_break(self) -> None:
+        topic = d.explain_topic("restart-after-break")
+        self.assertIn("L2071", " ".join(topic.sources))
+        # 核心态度必须是「别补回来」，不是「赶紧补回来」
+        self.assertIn("不要想着", topic.answer)
+        self.assertIn("最糟糕的事情", topic.answer)
+
+    def test_no_periodic_deload(self) -> None:
+        topic = d.explain_topic("no-periodic-deload")
+        self.assertIn("没有这个概念", topic.answer)
+        self.assertIn("第14章 L3496", " ".join(topic.sources))
+
+    def test_deload_question_routes_to_the_right_topic(self) -> None:
+        """以前「减量周之后怎么加回来」会命中高海拔那条。"""
+        hits = d.search("减量周之后怎么加回来")
+        self.assertEqual(hits[0].topic_id, "no-periodic-deload")
+
+
+class TestFriendlyErrors(unittest.TestCase):
+    """CLI 的报错要说人话，不能把 Python 的原文喷给用户。"""
+
+    def test_bad_json_explains_what_to_do(self) -> None:
+        code, _, err = run("audit", "-", stdin="{not json")
+        self.assertEqual(code, 1)
+        self.assertIn("不是合法 JSON", err)
+        self.assertIn("第 1 行", err)
+        self.assertIn("请写进文件再传路径", err)
+
+    def test_missing_file_says_so_in_chinese(self) -> None:
+        code, _, err = run("audit", "绝对不存在的文件.json")
+        self.assertEqual(code, 1)
+        self.assertIn("找不到文件", err)
+
+    def test_explain_no_match_is_readable(self) -> None:
+        code, out, _ = run("explain", "量子力学与红烧肉")
+        self.assertEqual(code, 0)
+        self.assertIn("没有匹配的词条", out)
+
+    def test_cite_search_no_match_is_readable(self) -> None:
+        code, out, _ = run("cite", "--search", "量子力学与红烧肉")
+        self.assertEqual(code, 0)
+        self.assertIn("没有匹配的出处", out)
+
+
 class TestSafetyGuards(unittest.TestCase):
     """那些「守着别人别出错」的分支——它们自己也得被跑过一次。"""
 

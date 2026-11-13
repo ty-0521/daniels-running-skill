@@ -345,11 +345,34 @@ def cmd_progression(args: argparse.Namespace) -> int:
 
 
 def cmd_audit(args: argparse.Namespace) -> int:
-    if args.plan == "-":
-        payload = json.load(sys.stdin)
-    else:
-        with open(args.plan, encoding="utf-8") as handle:
-            payload = json.load(handle)
+    """读一份周表并裁决。
+
+    JSON 报错要说人话。原来直接把 ``json`` 模块的原文喷给用户——
+    「Expecting property name enclosed in double quotes: line 1 column 2」，
+    对写表的人没有任何指向性。
+    """
+    where = "标准输入" if args.plan == "-" else args.plan
+    try:
+        if args.plan == "-":
+            payload = json.load(sys.stdin)
+        else:
+            with open(args.plan, encoding="utf-8") as handle:
+                payload = json.load(handle)
+    except json.JSONDecodeError as exc:
+        raise CliError(
+            f"{where}不是合法 JSON：第 {exc.lineno} 行第 {exc.colno} 列，"
+            f"{exc.msg}。\n"
+            "  常见原因：\n"
+            "  · 在 cmd / PowerShell 里手打 JSON，引号被 shell 吃掉了"
+            "——请写进文件再传路径\n"
+            "  · 用了单引号（JSON 只认双引号）\n"
+            "  · 文件里有中文逗号、中文引号\n"
+            "  格式见 docs/test-runs/plan.json"
+        ) from None
+    except FileNotFoundError:
+        raise CliError(f"找不到文件：{where}") from None
+    except OSError as exc:
+        raise CliError(f"读不了 {where}：{exc.strerror or exc}") from None
     weeks, kwargs = d.plan_from_dict(payload)
     result = d.audit_plan(weeks, **kwargs)  # type: ignore[arg-type]
     if args.json:
@@ -400,7 +423,13 @@ def cmd_cite(args: argparse.Namespace) -> int:
     if args.search:
         hits = d.search_citations(args.search, limit=args.limit)
         if not hits:
-            print("没有匹配的出处。用 `python -m daniels cite --list` 看全部。")
+            print(f"没有匹配的出处：{args.search!r}")
+            guesses = d.citations_did_you_mean(args.search)
+            if guesses:
+                print("  你是不是想问：")
+                for item in guesses:
+                    print(f"    {item.key:<10} {item.label:<28} {item.summary}")
+            print("  用 `python -m daniels cite --list` 看全部。")
             return EXIT_OK
         for item in hits:
             print(f"{item.key:<10} {item.label:<30} {item.summary}")
@@ -491,7 +520,13 @@ def _parse_date(name: str, text: str):
 def cmd_explain(args: argparse.Namespace) -> int:
     hits = d.search(args.query, limit=args.limit)
     if not hits:
-        print("没有匹配的词条。可用 `python -m daniels topics` 查看全部。")
+        print(f"没有匹配的词条：{args.query!r}")
+        guesses = d.explain_did_you_mean(args.query)
+        if guesses:
+            print("  你是不是想问：")
+            for topic in guesses:
+                print(f"    {topic.question}")
+        print("  用 `python -m daniels topics` 查看全部。")
         return EXIT_OK
     for topic in hits:
         print(f"■ {topic.question}")
