@@ -178,6 +178,8 @@ print(result.report()) # 逐条列出哪个第几周、哪一条
 
 ```python
 state = d.IntakeState().set("goal_distance_km", 21.1).set("days_per_week", 3)
+state.set("race_date", "2027-03-21")   # 只收 YYYY-MM-DD，存成 datetime.date
+state.race_date                        # datetime.date(2027, 3, 21)，可直接喂给 dates
 status = state.status()
 status.code        # need_info / need_result / ready / stopped / contradictory
 status.questions   # 这一轮只问这些

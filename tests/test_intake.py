@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import unittest
 
 import daniels as d
@@ -306,6 +307,52 @@ class TestContradictions(unittest.TestCase):
             .set("weekly_km", 20.0)
         )
         self.assertEqual(s.contradictions(), ())
+
+
+class TestRaceDateValidation(unittest.TestCase):
+    """比赛日期是十六轮实测里闯祸最多的字段：被编过两次、被改过一次。
+
+    它原来接受任何字符串——「明年3月」「2027/03/21」「2027-13-45」、空串——
+    全都返回 ready。所以现在只收 ISO 日期。
+    """
+
+    def test_accepts_iso_string(self) -> None:
+        state = d.IntakeState().set("race_date", "2027-03-21")
+        self.assertEqual(state.race_date, dt.date(2027, 3, 21))
+
+    def test_accepts_date_object(self) -> None:
+        state = d.IntakeState().set("race_date", dt.date(2027, 3, 21))
+        self.assertEqual(state.race_date, dt.date(2027, 3, 21))
+
+    def test_stored_as_date_so_it_can_feed_dates_module(self) -> None:
+        """存成 date 才能直接喂给 /dates/，不用再解析一次。"""
+        state = d.IntakeState().set("race_date", "2027-03-21")
+        self.assertEqual(d.weeks_until(dt.date(2026, 11, 13), state.race_date), (18, 2))
+
+    def test_rejects_vague_text(self) -> None:
+        with self.assertRaises(ValueError) as ctx:
+            d.IntakeState().set("race_date", "明年3月")
+        self.assertIn("YYYY-MM-DD", str(ctx.exception))
+
+    def test_rejects_wrong_separator(self) -> None:
+        with self.assertRaises(ValueError):
+            d.IntakeState().set("race_date", "2027/03/21")
+
+    def test_rejects_impossible_date(self) -> None:
+        with self.assertRaises(ValueError):
+            d.IntakeState().set("race_date", "2027-13-45")
+
+    def test_rejects_empty(self) -> None:
+        with self.assertRaises(ValueError) as ctx:
+            d.IntakeState().set("race_date", "   ")
+        self.assertIn("不能为空", str(ctx.exception))
+
+    def test_rejects_non_string(self) -> None:
+        with self.assertRaises(ValueError):
+            d.IntakeState().set("race_date", 20270321)
+
+    def test_none_when_unset(self) -> None:
+        self.assertIsNone(d.IntakeState().race_date)
 
 
 class TestScenariosFromRealRounds(unittest.TestCase):

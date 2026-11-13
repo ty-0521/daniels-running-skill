@@ -35,6 +35,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any, Dict, Tuple
 
 from .vdot import DISTANCE_MAX_M, DISTANCE_MIN_M, PaceSet, pace_set, vdot_from_race
@@ -266,6 +267,15 @@ class IntakeState:
         """这一项是否**已经问过并得到回答**。"""
         return key in self.answers
 
+    @property
+    def race_date(self) -> date | None:
+        """比赛日期，已经是 ``datetime.date``；没设时为 ``None``。
+
+        可以直接喂给 :func:`daniels.dates.weeks_until` / ``feasible_plans``。
+        """
+        value = self.answers.get("race_date")
+        return value if isinstance(value, date) else None
+
     def missing(self) -> Tuple[FieldSpec, ...]:
         """还缺哪些必填项（按层、按声明顺序）。"""
         return tuple(
@@ -381,6 +391,27 @@ class IntakeState:
 
 def _validate(key: str, value: Any) -> Any:
     """逐字段校验。宁可在这里报错，不要让它悄悄进到计算里。"""
+    if key == "race_date":
+        # 这是十六轮实测里闯祸最多的一个字段：被编过两次、被改过一次。
+        # 它原来接受任何字符串——「明年3月」「2027/03/21」「2027-13-45」、空串，
+        # 全都返回 ready。现在只收 ISO 日期，并且存成 date。
+        if isinstance(value, date) and not isinstance(value, bool):
+            return value
+        if not isinstance(value, str):
+            raise ValueError(
+                f"比赛日期要写成字符串 'YYYY-MM-DD' 或 datetime.date，"
+                f"收到 {type(value).__name__}"
+            )
+        text = value.strip()
+        if not text:
+            raise ValueError("比赛日期不能为空")
+        try:
+            return date.fromisoformat(text)
+        except ValueError:
+            raise ValueError(
+                f"比赛日期要写成 YYYY-MM-DD（例如 2027-03-21），收到 {value!r}。"
+                "如果还没定，就不要设这一项——缺着比填个模糊的好"
+            ) from None
     if key == "goal_distance_km":
         _require_number(key, value)
         if not DISTANCE_MIN_M / 1000.0 <= float(value) <= DISTANCE_MAX_M / 1000.0:
