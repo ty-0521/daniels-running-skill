@@ -58,6 +58,10 @@ python -m daniels manifest -o skill.json
 零第三方依赖，Python 3.10+ 即可（只用标准库）。
 `python -m daniels --help` 查看全部子命令。
 
+**注意：这不是一个 pip 包。** 没有 `pyproject.toml`，`pip install` 装不上——
+它是个 skill 目录，交付形态就是「一个文件夹 + 一个启动器」。
+只想当库用的话，把 `daniels/` 拷进你的 `PYTHONPATH` 就行。
+
 ## 快速开始
 
 ```python

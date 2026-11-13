@@ -112,6 +112,37 @@ class TestRaceTime(unittest.TestCase):
             race_time(35.0, 5000.0)  # 本意是 (5000, 35)
         self.assertIn("写反", str(ctx.exception))
 
+
+class TestInputValidation(unittest.TestCase):
+    """烂输入要报清楚的错，不能把 Python 的裸 TypeError 抛给用户。"""
+
+    def test_time_none(self) -> None:
+        with self.assertRaises(DanielsError) as ctx:
+            vdot_from_race(5000, None)  # type: ignore[arg-type]
+        self.assertIn("成绩必须是秒数", str(ctx.exception))
+
+    def test_time_string(self) -> None:
+        with self.assertRaises(DanielsError):
+            vdot_from_race(5000, "20:00")  # type: ignore[arg-type]
+
+    def test_time_zero_and_negative(self) -> None:
+        for bad in (0, -1, -1200.0):
+            with self.subTest(bad=bad):
+                with self.assertRaises(DanielsError):
+                    vdot_from_race(5000, bad)
+
+    def test_distance_wrong_type(self) -> None:
+        for bad in (None, "5000", [5000]):
+            with self.subTest(bad=bad):
+                with self.assertRaises(DanielsError):
+                    vdot_from_race(bad, 1200)  # type: ignore[arg-type]
+
+    def test_distance_out_of_range(self) -> None:
+        for bad in (0, 799, 42196):
+            with self.subTest(bad=bad):
+                with self.assertRaises(DanielsError):
+                    vdot_from_race(bad, 1200)
+
     def test_vdot_out_of_range(self) -> None:
         for bad in (19.9, 85.1, float("nan"), float("inf")):
             with self.subTest(vdot=bad):

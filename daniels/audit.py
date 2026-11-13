@@ -26,7 +26,12 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterable, Sequence, Tuple
 
 from .deload import check_progression
-from .dose import Session, check_week
+from .dose import (
+    RULES,
+    WEEKLY_VOLUME_SOFT_MAX_KM,
+    Session,
+    check_week,
+)
 
 __all__ = [
     "BASE_SOURCES",
@@ -349,6 +354,10 @@ def audit_plan(
 
     比赛周不参与第 5 项：比赛距离会把那一周的跑量顶上去，
     那不是一次"加量"。
+
+    ``sessions_per_week`` 是**全程一个值**。如果计划中途改出勤天数
+    （比如前 12 周 4 天、后 8 周 5 天），加量步长会算错——上限是按出勤
+    次数折算的（每次 +1.6 km）。这种表要按段分别审计，再并排看两份报告。
     """
     items = _require_weeks(weeks)
     if base_source not in BASE_SOURCES:
@@ -369,6 +378,7 @@ def audit_plan(
 
     findings: list[Finding] = []
     notes_race: list[str] = []
+    volume_notes: list[str] = []
     #: 实际跑过的检查。**必须动态填**——写死成六项的话，某项没跑也会被算进去，
     #: 那就是拿部分校验冒充整表结论，正是这个模块要防的事。
     checks: list[str] = ["cap", "incomplete", "race_volume", "sum"]
@@ -406,8 +416,7 @@ def audit_plan(
             )
 
         # 2. 完整性：训练周必须给出长跑
-        if not entry.is_race_week and not entry.has_long_run():
-            findings.append(
+        if not entry.is_race_week and not entry.has_long_run():            findings.append(
                 Finding(
                     check="incomplete",
                     severity="error",
@@ -452,6 +461,20 @@ def audit_plan(
                     )
                 )
 
+        # 5. 周跑量软上限。第 13 章 L3278（规则 D-G-04）说周跑量不必超过
+        # 129 km，除非已习惯该跑量或正在备战马拉松。这条规则一直登记着，
+        # 但没有任何地方执行——现在补上。
+        #
+        # 记成 note 而不是 finding：书里自己说了「已习惯或备战全马可以超过」，
+        # 那它就是个提醒，不是天花板。拿它阻断「通过」会把合法的马拉松计划判死。
+        if entry.weekly_km > WEEKLY_VOLUME_SOFT_MAX_KM:
+            volume_notes.append(
+                f"第 {entry.week} 周跑量 {entry.weekly_km:.0f} km 超过书里的 "
+                f"{WEEKLY_VOLUME_SOFT_MAX_KM:.0f} km 软上限"
+                f"（{RULES['D-G-04'].chapter} {RULES['D-G-04'].lines}）："
+                "除非已经习惯这个量或正在备战马拉松，否则没必要加这么高"
+            )
+
     # 5. 加量节奏：比赛周不参与
     training = [w for w in items if not w.is_race_week]
     if len(training) >= 2:
@@ -488,8 +511,7 @@ def audit_plan(
 
     # 6. 起点来源
     checks.append("base")
-    if base_source == "assumed":
-        findings.append(
+    if base_source == "assumed":        findings.append(
             Finding(
                 check="base",
                 severity="warn",
@@ -509,6 +531,7 @@ def audit_plan(
         "这是上限不是步长：表里实际每步小一点不算违规",
     ]
     notes.extend(notes_race)
+    notes.extend(volume_notes)
     if base_source != "assumed":
         notes.append(f"起点来源：{base_source}")
 

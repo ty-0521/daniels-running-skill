@@ -132,7 +132,7 @@ class TestEachCheckFires(unittest.TestCase):
     def test_single_training_week_cannot_pass(self) -> None:
         """只有 1 个训练周时，加量节奏根本没法判断——不许出结论。
 
-        以前这里会静默跳过，然后照样在报告里写「六类检查全过」。
+        以前这里会静默跳过，然后照样在报告里写「N 类检查全过」。
         """
         weeks = (
             d.WeekEntry(week=1, weekly_km=30.0, sessions=(d.Session("L", 9.0),)),
@@ -154,7 +154,7 @@ class TestEachCheckFires(unittest.TestCase):
         self.assertNotIn("类检查全过", result.summary())
         self.assertNotIn("6 类", result.summary())
 
-    def test_checks_has_six_when_everything_runs(self) -> None:
+    def test_checks_has_all_when_everything_runs(self) -> None:
         result = d.audit_plan(build(COMPLIANT_WEEKS, COMPLIANT_LONG), 5)
         self.assertEqual(len(result.checks), 6)
         self.assertIn("6 类", result.summary())
@@ -168,6 +168,29 @@ class TestEachCheckFires(unittest.TestCase):
                 sessions=(d.Session("L", 9.0),),
                 part_km=(-5.0, 35.0),
             )
+
+    def test_weekly_volume_soft_max_is_a_note_not_a_blocker(self) -> None:
+        """129 km 是建议不是天花板——书里说「已习惯或备战全马」可以超过。
+
+        所以它记成 note、不阻断通过；否则合法的马拉松计划会被判死。
+        """
+        weeks = (
+            d.WeekEntry(week=1, weekly_km=130.0, sessions=(d.Session("L", 32.5),)),
+            d.WeekEntry(week=2, weekly_km=130.0, sessions=(d.Session("L", 32.5),)),
+        )
+        result = d.audit_plan(weeks, 6)
+        self.assertTrue(result.passed, result.report())
+        joined = " ".join(result.notes)
+        self.assertIn("129", joined)
+        self.assertIn("L3278", joined)
+
+    def test_no_soft_max_note_below_threshold(self) -> None:
+        weeks = (
+            d.WeekEntry(week=1, weekly_km=100.0, sessions=(d.Session("L", 30.0),)),
+            d.WeekEntry(week=2, weekly_km=100.0, sessions=(d.Session("L", 30.0),)),
+        )
+        result = d.audit_plan(weeks, 6)
+        self.assertNotIn("软上限", " ".join(result.notes))
 
     def test_incomplete_when_long_run_missing(self) -> None:
         weeks = (

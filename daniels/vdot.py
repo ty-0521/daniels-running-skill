@@ -273,10 +273,21 @@ def vdot_from_race(distance_m: float, time_s: float) -> float:
     DanielsError
         距离或成绩非法。
     """
+    if not isinstance(distance_m, (int, float)) or isinstance(distance_m, bool):
+        raise DanielsError(
+            f"距离必须是数字，收到 {type(distance_m).__name__}"
+        )
     if not (DISTANCE_MIN_M <= distance_m <= DISTANCE_MAX_M):
         raise DanielsError(
             f"距离 {distance_m} m 超出支持范围 "
             f"[{DISTANCE_MIN_M:.0f}, {DISTANCE_MAX_M:.0f}] m"
+        )
+    if not isinstance(time_s, (int, float)) or isinstance(time_s, bool):
+        # 不校验的话，None 会在这里抛一句裸的
+        # "'>' not supported between instances of 'NoneType' and 'int'"
+        raise DanielsError(
+            f"成绩必须是秒数，收到 {type(time_s).__name__}。"
+            "例如 5 公里跑 20:00 要传 1200"
         )
     if not time_s > 0:
         raise DanielsError(f"成绩必须为正数秒，收到 {time_s!r}")
