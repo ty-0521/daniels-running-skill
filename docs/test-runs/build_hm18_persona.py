@@ -9,7 +9,10 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, r"D:\training")
+# 仓库根目录：docs/test-runs/<本文件> -> 上三层
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 import daniels as d
 
 # ---------------------------------------------------------------------------
@@ -137,7 +140,7 @@ payload = {
         for wk in weeks
     ],
 }
-out = Path(r"D:\training\docs\test-runs\plan_hm18_persona.json")
+out = ROOT / "docs" / "test-runs" / "plan_hm18_persona.json"
 out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 print("\nJSON 已写出：", out)
 

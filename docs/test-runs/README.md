@@ -35,24 +35,43 @@
 
 ### 它自己犯的两个错，值得照着改
 
-`plan_builder.py` 里这两行，是「手算代替调函数」的活标本：
+`plan_builder.py` 里原本有这两行，是「手算代替调函数」的活标本：
 
 ```python
 sys.path.insert(0, r"C:\Users\ty\.dsh\skills\daniels-running-skill")  # 只在这台机器能跑
 START = datetime.date(2026, 11, 30)                                   # 写死的起点
 ```
 
-库里明明有 `d.plan_window(20, race_date)`，起点不该手写。正确的写法：
+**两行现在都改了**（因为把脚本发到别的机器上根本跑不起来）：
 
-```python
-from datetime import date
-import daniels as d
+* 路径改成 `Path(__file__).resolve().parents[2]`，跟着文件位置走；
+* 起点改成 `d.plan_window(20, RACE)[0]`，跟着比赛日走。
 
-race = date(2027, 4, 18)
-start, _ = d.plan_window(20, race)      # 2026-11-30，跟着比赛日自动变
+改完输出与原来一模一样（起点仍然是 2026-11-30），但**现在它是算出来的，不是抄下来的**——
+下次换一个比赛日，表会自己跟着动，不会静默错位。
+
+库里明明有 `d.plan_window`，起点就不该手写。这个说法没变，只是代码现在对上了。
+
+## 第三轮：豆包 agent 端到端（2026-11-13）
+
+不是人测的，是一个能跑 Python 的 agent（豆包工作模式，读 `D:\training` 这份工作副本）
+从零排出来的一张 18 周半马表。留着当**外部跑通的证据**。
+
+| 文件 | 说明 |
+|---|---|
+| `build_hm18_persona.py` | 生成与自审脚本。人物数据虚构；每个配速、上限、周数都走 `daniels` 函数 |
+| `plan_hm18_persona.json` | 上表的机器可读版本，可直接 `python daniels_cli.py audit 它` |
+| `半马18周计划_虚拟人物.md` | 给人读的版本，开头写明「虚构」「合规结论只来自 audit_plan」 |
+
+独立复核：
+
+```
+$ python daniels_cli.py audit docs/test-runs/plan_hm18_persona.json
+通过：18 周，6 类检查全过（cap、incomplete、race_volume、sum、progression、base）
 ```
 
-以及路径应该用相对导入或 `sys.path.insert(0, str(Path(__file__).parents[2]))`。
+**这一份和前两轮不同：它是通过的。** 前两轮留着是因为它们错了，这一轮留着是因为它对——
+而且证明这套东西换个 agent、换台机器，行为一致。
 
 ## 为什么留着
 

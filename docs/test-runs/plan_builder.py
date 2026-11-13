@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
 """20 周半马周表 v3：全部约束一起满足，送整表裁决。"""
 import sys, datetime
-sys.path.insert(0, r"C:\Users\ty\.dsh\skills\daniels-running-skill")
+from pathlib import Path
+import sys
+
+# 仓库根目录：docs/test-runs/<本文件> -> 上三层。别写死本机路径。
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 import daniels as d
 
 # 每档：(周跑量, 长跑, 两次轻松跑, 第三次轻松跑)
@@ -20,7 +26,13 @@ QUALITY = {5: ("R", 1.2), 6: ("R", 1.2), 7: ("R", 1.6), 8: ("R", 1.6), 9: ("R", 
            15: ("I", 3.2), 16: ("I", 3.6), 17: ("T", 5.0)}
 TAPER = {18: (33.7, 10.0, 7.9, 7.9), 19: (25.3, 7.5, 5.9, 6.0)}
 
-START = datetime.date(2026, 11, 30)
+import datetime
+
+# 起点由 plan_window 推，不手写。写死的话，换一个比赛日整张表就静默错位。
+import daniels as _d
+
+RACE = datetime.date(2027, 4, 18)
+START = _d.plan_window(20, RACE)[0]
 
 
 def level_of(w):
