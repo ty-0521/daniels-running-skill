@@ -98,6 +98,19 @@ FIELD_SPECS: Tuple[FieldSpec, ...] = (
         ),
     ),
     FieldSpec(
+        key="red_flags",
+        layer=0,
+        title="红线筛查",
+        question=(
+            "现在有没有疼痛、伤病、刚做过手术、怀孕，或者心血管方面的问题？"
+            "有的话直接说，先不排计划"
+        ),
+        why=(
+            "带伤训练这件事不该由一张周表决定。有红线就停，"
+            "不是把跑量降 20% 继续"
+        ),
+    ),
+    FieldSpec(
         key="recent_result",
         layer=1,
         title="近期成绩",
@@ -145,28 +158,15 @@ FIELD_SPECS: Tuple[FieldSpec, ...] = (
         ),
     ),
     FieldSpec(
-        key="red_flags",
-        layer=3,
-        title="红线筛查",
-        question=(
-            "现在有没有疼痛、伤病、刚做过手术、怀孕，或者心血管方面的问题？"
-            "有的话直接说，先不排计划"
-        ),
-        why=(
-            "带伤训练这件事不该由一张周表决定。有红线就停，"
-            "不是把跑量降 20% 继续"
-        ),
-    ),
-    FieldSpec(
         key="surface",
-        layer=4,
+        layer=3,
         title="场地",
         question="主要在公路、越野小径，还是跑步机上跑？",
         why="越野的 L 跑上限比公路严得多（30%/60 分钟 对 30%/150 分钟）",
     ),
     FieldSpec(
         key="altitude_m",
-        layer=4,
+        layer=3,
         title="海拔",
         question="训练地海拔大概多少米？",
         why="超过 914 米才需要修正；2500 米以上书里没有数据，会直接拒绝",
@@ -176,14 +176,17 @@ FIELD_SPECS: Tuple[FieldSpec, ...] = (
 #: 按 key 索引，便于校验。
 FIELD_BY_KEY: Dict[str, FieldSpec] = {spec.key: spec for spec in FIELD_SPECS}
 
-#: 第 0~3 层是硬门禁；第 4 层有默认值。
+#: 第 0~2 层是硬门禁；第 3 层的场地与海拔有默认值，不在必填里。
+#:
+#: 顺序与 :data:FIELD_SPECS 一致：**红线紧跟在目标和日期后面**。
+#: 它必须比任何训练数据都先问到——带伤收集跑量是白费。
 REQUIRED_KEYS: Tuple[str, ...] = (
     "goal_distance_km",
     "race_date",
+    "red_flags",
     "weekly_km",
     "longest_recent_km",
     "days_per_week",
-    "red_flags",
 )
 
 #: 有默认值的字段。

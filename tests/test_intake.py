@@ -34,31 +34,53 @@ class TestLayers(unittest.TestCase):
     """分层提问：一次只问最靠前那一层缺的。"""
 
     def test_empty_state_asks_layer_zero_only(self) -> None:
-        """什么都还没给时，只问第 0 层那两项，不把十来个问题一次抛出来。"""
+        """什么都还没给时，只问第 0 层那三项：目标、日期、红线。"""
         status = d.IntakeState().status()
         self.assertEqual(status.code, "need_info")
-        self.assertEqual([s.key for s in status.missing],
-                         ["goal_distance_km", "race_date"])
-        self.assertEqual(len(status.questions), 2)
+        self.assertEqual(
+            [s.key for s in status.missing],
+            ["goal_distance_km", "race_date", "red_flags"],
+        )
+        self.assertEqual(len(status.questions), 3)
         self.assertIn("公里", status.questions[0])
 
     def test_does_not_ask_layer_two_before_layer_zero(self) -> None:
         state = d.IntakeState().set("goal_distance_km", 21.1)
         status = state.status()
-        # 全量缺项按层看是 0,2,2,2,3
-        self.assertEqual([spec.layer for spec in state.missing()], [0, 2, 2, 2, 3])
-        # 但这一轮只问第 0 层
-        self.assertEqual([spec.layer for spec in status.missing], [0])
-        self.assertEqual(status.questions, (
-            "比赛是哪一天？请给具体日期。如果还没定，也说一声——"
-            "那我只给训练方向，不排周表",
-        ))
+        # 全量缺项按层看是 0,0,2,2,2
+        self.assertEqual([spec.layer for spec in state.missing()], [0, 0, 2, 2, 2])
+        # 但这一轮只问第 0 层：比赛日期 + 红线
+        self.assertEqual([spec.layer for spec in status.missing], [0, 0])
+        self.assertEqual(len(status.questions), 2)
+
+    def test_red_flags_are_asked_in_the_first_round(self) -> None:
+        """红线必须在收集任何训练数据之前问出来。
+
+        四个分支实测里，没有一个真的问了伤病：A 说「下一轮我会问」，
+        D 列了「还缺三个数」却没有它。所以把它挪到第 0 层，
+        目标一确定就得答。
+        """
+        state = d.IntakeState().set("goal_distance_km", 21.1)
+        keys = [spec.key for spec in state.status().missing]
+        self.assertIn("red_flags", keys)
+
+    def test_red_flags_still_pending_after_goal_and_date(self) -> None:
+        """给了目标和日期但没答红线时，下一轮只问红线，不进第 2 层。"""
+        state = (
+            d.IntakeState()
+            .set("goal_distance_km", 21.1)
+            .set("race_date", "2027-03-21")
+        )
+        status = state.status()
+        self.assertEqual(status.code, "need_info")
+        self.assertEqual([spec.key for spec in status.missing], ["red_flags"])
 
     def test_after_layer_zero_asks_layer_two(self) -> None:
         state = (
             d.IntakeState()
             .set("goal_distance_km", 21.1)
             .set("race_date", "2027-03-21")
+            .set("red_flags", ())
         )
         status = state.status()
         self.assertEqual(status.code, "need_info")
