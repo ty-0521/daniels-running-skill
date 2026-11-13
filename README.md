@@ -64,6 +64,33 @@ python -m daniels manifest -o skill.json
 它是个 skill 目录，交付形态就是「一个文件夹 + 一个启动器」。
 只想当库用的话，把 `daniels/` 拷进你的 `PYTHONPATH` 就行。
 
+## 在别的 agent 里用（不限 DSH）
+
+**只要那个 agent 能 `git clone` + 能执行 Python，就能用**——没有任何依赖要装。
+`~/.dsh/skills/` 只是 DSH 的自动加载约定，别的平台不需要。
+
+克隆到任意目录即可，`daniels_cli.py` 会把所在目录加进 `sys.path`，从哪跑都行：
+
+```bash
+git clone https://github.com/ty-0521/daniels-running-skill.git
+cd daniels-running-skill
+
+# 自检：必须输出 VDOT = 49.81
+python daniels_cli.py vdot 5k 20:00
+```
+
+给那个 agent 的话可以这么说：
+
+> 把 `<仓库地址>` clone 下来，读根目录的 `AGENTS.md` 和 `SKILL.md`，
+> 然后按里面的规则帮我。装好先跑 `python daniels_cli.py vdot 5k 20:00`，
+> 应该是 `VDOT = 49.81`。
+
+`AGENTS.md` 是专门写给 agent 的入口：五条铁律 + 自检命令 + 常用命令。
+多数平台（Codex、Cursor、Jules 等）会自动读它；不自动读的，让它读一下就行。
+
+**跑不了 Python 的助手（纯聊天类）请不要用。** 它读不到方程，只能手算，
+而这个项目里每一个真实出过的错都是手算出来的。那种环境请直接说「算不了」。
+
 ## 快速开始
 
 ```python

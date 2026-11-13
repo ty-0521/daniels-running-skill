@@ -18,7 +18,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DOCS = ("README.md", "SKILL.md")
+DOCS = ("README.md", "SKILL.md", "AGENTS.md")
 
 
 def python_blocks(path: Path) -> list[str]:
@@ -53,6 +53,14 @@ class TestDocCodeBlocks(unittest.TestCase):
 
     def test_skill_blocks_run(self) -> None:
         self._run("SKILL.md")
+
+    def test_agents_blocks_run(self) -> None:
+        """``AGENTS.md`` 是给别的 agent 的入口，里面的示例更得能跑。
+
+        它原先有一个 ``d.audit_plan(weeks, ...)`` 而没有定义 ``weeks``，
+        读者复制就 NameError。
+        """
+        self._run("AGENTS.md")
 
     def test_readme_audit_example_passes(self) -> None:
         """README 里那张示例表必须真的通过，否则读者会以为是自己抄错。"""
