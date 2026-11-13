@@ -1,0 +1,703 @@
+{
+  "name": "daniels-running-skill",
+  "version": "1.0.0",
+  "description": "《丹尼尔斯经典跑步训练法（第3版）》的可验证知识库：数值层给配速与上限，规则层给周期与合规检查，叙述层给不带原文的解释",
+  "layers": {
+    "vdot": [
+      "vdot_from_race",
+      "race_time",
+      "pace_set",
+      "h_time_cap",
+      "altitude_correction"
+    ],
+    "dose": [
+      "long_run_cap",
+      "marathon_pace_cap",
+      "threshold_cap",
+      "interval_cap",
+      "repetition_cap",
+      "check_week",
+      "post_race_easy_days",
+      "volume_step_km"
+    ],
+    "periodize": [
+      "plan_schedule",
+      "phase_info",
+      "quality_days",
+      "q_intensities",
+      "taper_rules",
+      "week_taper",
+      "weekly_volume_bounds"
+    ],
+    "dates": [
+      "weeks_until",
+      "max_plan_weeks",
+      "plan_window",
+      "feasible_plans"
+    ],
+    "deload": [
+      "deload_impact",
+      "deload_weeks",
+      "growth_path",
+      "t_peak_km",
+      "check_progression"
+    ],
+    "audit": [
+      "audit_plan",
+      "plan_from_dict"
+    ],
+    "intake": [
+      "IntakeState",
+      "paces_from_intake"
+    ],
+    "citations": [
+      "cite",
+      "search_citations",
+      "citations"
+    ],
+    "explain": [
+      "explain_topic",
+      "search",
+      "topic_ids"
+    ]
+  },
+  "constants": {
+    "vdot_range": [
+      20.0,
+      85.0
+    ],
+    "vdot_novice_upper": 30.0,
+    "volume_split_km": 64.0,
+    "weekly_volume_soft_max_km": 129.0,
+    "altitude": {
+      "negligible_below": 914.0,
+      "reference": 2130.0,
+      "max": 2500.0
+    },
+    "documented_plan_lengths": [
+      3,
+      6,
+      9,
+      12,
+      20,
+      23,
+      24
+    ]
+  },
+  "error_bounds": [
+    {
+      "metric": "VDOT 正反算",
+      "max_error": "0.21 个 VDOT",
+      "basis": "附录 D 四个分界值（1600 m 4:40 / 5:20 / 5:21 / 6:12）"
+    },
+    {
+      "metric": "M 配速",
+      "max_error": "0.14%",
+      "basis": "表 5—2，VDOT 51 一行"
+    },
+    {
+      "metric": "T 配速",
+      "max_error": "0.72%",
+      "basis": "表 5—2 与表 5—3 共 13 个点"
+    },
+    {
+      "metric": "I 配速（VDOT ≥ 30）",
+      "max_error": "0.45%",
+      "basis": "表 5—2 的 VDOT 51 与 60"
+    },
+    {
+      "metric": "I 配速（VDOT < 30）",
+      "max_error": "3.5%",
+      "basis": "表 5—3 的 11 行",
+      "note": "不是公式误差：表 5—3 的 I 列按 R 加 7~8 秒/400 m 排，与 98% vVO2max 的定义本身不一致。需要照书执行时用 PaceSet.novice_row"
+    },
+    {
+      "metric": "R 配速",
+      "max_error": "1.43%",
+      "basis": "表 5—2 与表 5—3",
+      "note": "书中表格按整秒印刷，1 秒的量化误差已占去大半"
+    },
+    {
+      "metric": "E 配速区间",
+      "max_error": "1.23%",
+      "basis": "表 5—2，VDOT 51 一行的快慢两端"
+    },
+    {
+      "metric": "训练量上限",
+      "max_error": "0（按公式精确）",
+      "basis": "书中的百分比与封顶值",
+      "note": "误差只可能来自书中算例本身（已发现一例笔误）"
+    }
+  ],
+  "unsupported": [
+    {
+      "area": "VDOT 低于 20 或高于 85",
+      "reason": "书中表 5—3 收 20~30，表 5—1/5—2 收 30~85，之外无数据",
+      "behavior": "抛 VdotRangeError"
+    },
+    {
+      "area": "年龄与性别调整",
+      "reason": "表 5—7 与表 5—8 是图片，无可用真值可校",
+      "behavior": "不实现；需要时由使用者自行处理"
+    },
+    {
+      "area": "跑步机坡度—速度换算表",
+      "reason": "表 4—5/4—6 只有 1 个可读锚点，不足以还原",
+      "behavior": "只保留「跑步机坡度加 2% 补风阻」这一条定性规则"
+    },
+    {
+      "area": "训练计划表的逐字课目",
+      "reason": "表 7—1 至 14—9 全部是位图，OCR 只能取到骨架",
+      "behavior": "按规则生成课目，并说明与书本印刷表不是逐字一致"
+    },
+    {
+      "area": "海拔高于 2500 m",
+      "reason": "书中讨论范围是 1200~2500 m",
+      "behavior": "抛 AltitudeRangeError"
+    },
+    {
+      "area": "书中未记录的训练季长度",
+      "reason": "只记录了 [3, 6, 9, 12, 20, 23, 24] 这几种周数",
+      "behavior": "抛 PhaseLengthError；需显式开启推导才会返回"
+    },
+    {
+      "area": "周期性减量（每 N 周减量 X%）",
+      "reason": "书中没有这个概念；全书的减量只有赛前减量与赛后恢复两类",
+      "behavior": "daniels.deload 只给算术（哪几周减、各强度上限变多少、加到目标跑量要多少周、周表有没有违规），不生成周表；回答里引用之前必须先说明这是外推，不是书中规则"
+    },
+    {
+      "area": "带伤、术后、孕期或心血管问题下的训练安排",
+      "reason": "这不是训练量问题，是医疗问题",
+      "behavior": "intake 一旦收到红线就返回 stopped，退出码 2，不给任何跑量、配速或替代训练建议"
+    },
+    {
+      "area": "手写行号",
+      "reason": "十轮实测里行号引错 3 次，且每次结论都对、只有出处错，读者核不到",
+      "behavior": "行号一律走 daniels.citations.cite() / search_citations()；32 条规则已逐条回原文核过，核对记录见 citation_audit"
+    }
+  ],
+  "deload_provenance": {
+    "book_position": "书中没有周期性减量（每 N 周减量 X%）的概念。全书的减量只有两类：赛前减量与赛后恢复",
+    "what_exists": "第14章 L3398 把 2Q 马拉松计划的周跑量写成峰值 P 的 80%~100%，其中 0.8P 是该计划最低的一周",
+    "misuse": "不要把这句（第14章 L3398）读成「降 20% 被书批准」。它描述的是某张具体计划表的第二列，不是一条适用于任何跑者、任何周数的减量许可",
+    "consequence": "周期性减量会让每一轮的周跑量上限同比缩小。T 的单次下限是 4.8 km（第14章 L3478），减量周的 10% 上限一旦低于它，该周就排不出合规的 T 训练",
+    "source": "第14章 L3398、L3478、L3496；第11章 L2956"
+  },
+  "citation_audit": {
+    "rule_count": 32,
+    "fixes": [
+      "D-I-02：原引 第5章 L1784（该行是 VDOT 51 的一组配速例），5 分钟回合的出处是 第4章 L1480；1200 m 这个当量确实在 L1784，已写进摘要。",
+      "D-I-03：原引 第11章 L2978（该行讲的是 I ≤ 周跑量 8% 且 ≤ 10 km），「每周两次就够」在下一行 L2980。",
+      "D-R-02：原引 第4章 L1583（该行讲 R 的总量 ≤ 8 km 与 5%），「单个回合不超过 2 分钟」在 第5章 L1786。",
+      "其余 29 条逐字比对一致，未改动。"
+    ],
+    "note": "行号必须来自 citations.cite() / search_citations()，禁止在回答里手写行号"
+  },
+  "rules": [
+    {
+      "rule_id": "D-G-01",
+      "chapter": "第12章",
+      "lines": "L3156",
+      "summary": "上述百分比是单次训练的上限，不是每周应当达到的目标"
+    },
+    {
+      "rule_id": "D-G-02",
+      "chapter": "第2章",
+      "lines": "L934",
+      "summary": "提高训练压力前，先把当前压力维持 4~6 周"
+    },
+    {
+      "rule_id": "D-G-03",
+      "chapter": "第11章",
+      "lines": "L2956",
+      "summary": "每 3~4 周把每次跑的里程加 1.6 km，周增量按出勤次数折算并封顶 16 km"
+    },
+    {
+      "rule_id": "D-G-04",
+      "chapter": "第13章",
+      "lines": "L3278",
+      "summary": "周跑量不必超过 129 km，除非已习惯该跑量或正在备战马拉松"
+    },
+    {
+      "rule_id": "D-G-05",
+      "chapter": "第9章",
+      "lines": "L2605",
+      "summary": "提高训练配速（更新 VDOT）的频率不高于每 3 周一次"
+    },
+    {
+      "rule_id": "D-G-06",
+      "chapter": "第14章",
+      "lines": "L3482",
+      "summary": "比赛后按距离安排轻松日，每约 3 km 一个"
+    },
+    {
+      "rule_id": "D-G-07",
+      "chapter": "第13章",
+      "lines": "L3342",
+      "summary": "比赛前安排 2~3 个轻松日"
+    },
+    {
+      "rule_id": "D-G-08",
+      "chapter": "第14章",
+      "lines": "L3398",
+      "summary": "周跑量定在最高周跑量 P 的 80%~100% 之间"
+    },
+    {
+      "rule_id": "D-I-01",
+      "chapter": "第4章",
+      "lines": "L1528",
+      "summary": "单次 I 配速的累计距离取「周跑量 8%」与「10 km」的较小值"
+    },
+    {
+      "rule_id": "D-I-02",
+      "chapter": "第4章",
+      "lines": "L1480",
+      "summary": "单个 I 配速回合持续 3~5 分钟；5 分钟在 VDOT 51 时对应约 1200 m（第5章 L1784）"
+    },
+    {
+      "rule_id": "D-I-03",
+      "chapter": "第11章",
+      "lines": "L2980",
+      "summary": "每周两次 I 训练已经足够"
+    },
+    {
+      "rule_id": "D-I-04",
+      "chapter": "第4章",
+      "lines": "L1530",
+      "summary": "换算时把 5 分钟 H 跑计为 1.6 km"
+    },
+    {
+      "rule_id": "D-I-05",
+      "chapter": "第13章",
+      "lines": "L3318",
+      "summary": "H 跑单次总时间取「10 km 用时」与「按 5 km 配速跑完周跑量 8% 所需时间」的较小值"
+    },
+    {
+      "rule_id": "D-L-01",
+      "chapter": "第4章",
+      "lines": "L1363",
+      "summary": "周跑量少于 64 km 时，单次 L 跑不超过周跑量的 30%"
+    },
+    {
+      "rule_id": "D-L-02",
+      "chapter": "第4章",
+      "lines": "L1363",
+      "summary": "周跑量达 64 km 及以上时，单次 L 跑取「周跑量 25%」与「150 分钟」的较小值"
+    },
+    {
+      "rule_id": "D-L-03",
+      "chapter": "第4章",
+      "lines": "L1345",
+      "summary": "任何单次定速跑不超过 150 分钟，备战马拉松亦然"
+    },
+    {
+      "rule_id": "D-L-04",
+      "chapter": "第6章",
+      "lines": "L2016",
+      "summary": "阶段一每周的轻松 L 跑占周跑量的 25%~30%"
+    },
+    {
+      "rule_id": "D-L-05",
+      "chapter": "第12章",
+      "lines": "L3160",
+      "summary": "越野跑阶段一：单次 L 跑取「周跑量 30%」与「60 分钟」的较小值"
+    },
+    {
+      "rule_id": "D-L-06",
+      "chapter": "第12章",
+      "lines": "L3188",
+      "summary": "越野跑阶段二：单次 L 跑控制在周跑量的 25% 以内"
+    },
+    {
+      "rule_id": "D-L-07",
+      "chapter": "第13章",
+      "lines": "L3276",
+      "summary": "半程马拉松阶段一：单次 L 跑取「周跑量 25%」与「150 分钟」的较小值"
+    },
+    {
+      "rule_id": "D-L-08",
+      "chapter": "第12章",
+      "lines": "L3160",
+      "summary": "任何单日跑量不超过周跑量的 25%"
+    },
+    {
+      "rule_id": "D-M-01",
+      "chapter": "第4章",
+      "lines": "L1392",
+      "summary": "单次 M 配速跑取「110 分钟」与「29 km」的较小值"
+    },
+    {
+      "rule_id": "D-M-02",
+      "chapter": "第4章",
+      "lines": "L1392",
+      "summary": "单次 M 配速跑的累计量取「周跑量 20%」与「29 km」的较小值"
+    },
+    {
+      "rule_id": "D-M-03",
+      "chapter": "第14章",
+      "lines": "L3480",
+      "summary": "周跑量少于 64 km 时，单次 M 配速跑不超过周跑量的 30%"
+    },
+    {
+      "rule_id": "D-R-01",
+      "chapter": "第4章",
+      "lines": "L1583",
+      "summary": "单次 R 配速的累计距离取「周跑量 5%」与「8 km」的较小值"
+    },
+    {
+      "rule_id": "D-R-02",
+      "chapter": "第5章",
+      "lines": "L1786",
+      "summary": "单个 R 配速回合不超过 2 分钟"
+    },
+    {
+      "rule_id": "D-R-03",
+      "chapter": "第4章",
+      "lines": "L1581",
+      "summary": "R 跑的恢复时间是快速跑用时的 2~3 倍，或慢跑同等距离"
+    },
+    {
+      "rule_id": "D-T-01",
+      "chapter": "第4章",
+      "lines": "L1429",
+      "summary": "单次训练中 T 配速的累计距离不超过周跑量的 10%"
+    },
+    {
+      "rule_id": "D-T-02",
+      "chapter": "第14章",
+      "lines": "L3478",
+      "summary": "单次 T 训练取「周跑量 10%」与「24 km」的较小值，且每次至少跑 4.8 km"
+    },
+    {
+      "rule_id": "D-T-03",
+      "chapter": "第4章",
+      "lines": "L1449",
+      "summary": "定速节奏跑单次要控制在约 20 分钟以内"
+    },
+    {
+      "rule_id": "D-T-04",
+      "chapter": "第4章",
+      "lines": "L1429",
+      "summary": "若把 T 拆成巡航间歇，累计的 T 配速时间应至少 30 分钟"
+    },
+    {
+      "rule_id": "D-T-05",
+      "chapter": "第4章",
+      "lines": "L1451",
+      "summary": "巡航间歇的训练与恢复时间比约为 5:1"
+    }
+  ],
+  "topics": [
+    {
+      "topic_id": "breathing-2-2",
+      "question": "跑步时该怎么呼吸？",
+      "sources": [
+        "第2章 L1016-L1028",
+        "第2章 L1042"
+      ]
+    },
+    {
+      "topic_id": "cadence-180",
+      "question": "步频为什么要接近每分钟 180 步？",
+      "sources": [
+        "第2章 L951",
+        "第2章 L965"
+      ]
+    },
+    {
+      "topic_id": "l-cap-conflict",
+      "question": "L 跑的上限有 25%、30%、60 分钟、150 分钟几种说法，到底用哪个？",
+      "sources": [
+        "第4章 L1363",
+        "第12章 L3160",
+        "第13章 L3276",
+        "第14章 L3484"
+      ]
+    },
+    {
+      "topic_id": "no-short-race-prediction",
+      "question": "能用短距离成绩去预测长距离吗？",
+      "sources": [
+        "第5章 L1748",
+        "第4章 L1388",
+        "第14章 L3402"
+      ]
+    },
+    {
+      "topic_id": "percent-is-per-session",
+      "question": "周跑量 10% 的 T 配速，是每周要凑够 10% 吗？",
+      "sources": [
+        "第12章 L3154",
+        "第12章 L3156"
+      ]
+    },
+    {
+      "topic_id": "six-second-rule-varies",
+      "question": "「6 秒规则」是不是所有跑者都适用？",
+      "sources": [
+        "第5章 L1804"
+      ]
+    },
+    {
+      "topic_id": "t-comfortably-hard",
+      "question": "T 配速到底是什么感觉？",
+      "sources": [
+        "第4章 L1415",
+        "第4章 L1421"
+      ]
+    },
+    {
+      "topic_id": "tempo-vs-cruise",
+      "question": "定速节奏跑和巡航间歇有什么区别？",
+      "sources": [
+        "第4章 L1425",
+        "第4章 L1427",
+        "第4章 L1449"
+      ]
+    },
+    {
+      "topic_id": "train-less-not-more",
+      "question": "两次训练之间拿不准该练哪个怎么办？",
+      "sources": [
+        "第2章 L763",
+        "第15章 L3764"
+      ]
+    },
+    {
+      "topic_id": "vdot-vs-vo2max",
+      "question": "VDOT 和我实验室测的最大摄氧量为什么不一样？",
+      "sources": [
+        "第5章 L1742-L1746"
+      ]
+    },
+    {
+      "topic_id": "why-150-min-cap",
+      "question": "长距离跑为什么要封顶 150 分钟？",
+      "sources": [
+        "第4章 L1345",
+        "第4章 L1367-L1371"
+      ]
+    },
+    {
+      "topic_id": "why-220-age-fails",
+      "question": "为什么不能用 220 减年龄估最大心率？",
+      "sources": [
+        "第3章 L1184-L1190"
+      ]
+    },
+    {
+      "topic_id": "why-30-min-floor",
+      "question": "E 跑为什么至少要 30 分钟？",
+      "sources": [
+        "第4章 L1345"
+      ]
+    },
+    {
+      "topic_id": "why-altitude-less-than-vo2max",
+      "question": "上高海拔后最大摄氧量掉那么多，为什么成绩没有掉那么多？",
+      "sources": [
+        "第8章 L2343",
+        "第3章 L1114",
+        "第8章 L2481"
+      ]
+    },
+    {
+      "topic_id": "why-altitude-r-unchanged",
+      "question": "高海拔时 R 配速要不要调慢？",
+      "sources": [
+        "第8章 L2387",
+        "第14章 L3582"
+      ]
+    },
+    {
+      "topic_id": "why-altitude-same-volume",
+      "question": "上高海拔要不要减跑量？",
+      "sources": [
+        "第8章 L2381-L2383",
+        "第8章 L2395"
+      ]
+    },
+    {
+      "topic_id": "why-cross-train",
+      "question": "受伤跑不了，做什么能少掉一点体能？",
+      "sources": [
+        "第15章 L3642-L3658"
+      ]
+    },
+    {
+      "topic_id": "why-easy-is-slow",
+      "question": "E 跑为什么要跑那么慢？",
+      "sources": [
+        "第4章 L1331",
+        "第4章 L1339",
+        "第4章 L1355"
+      ]
+    },
+    {
+      "topic_id": "why-h-by-time",
+      "question": "H 跑为什么按时间而不是按距离？",
+      "sources": [
+        "第4章 L1526",
+        "第12章 L3063",
+        "第13章 L3318"
+      ]
+    },
+    {
+      "topic_id": "why-hold-4-weeks",
+      "question": "为什么加量前要先维持四周？",
+      "sources": [
+        "第2章 L934",
+        "第15章 L3764",
+        "第11章 L2954"
+      ]
+    },
+    {
+      "topic_id": "why-hr-not-pace",
+      "question": "能不能用心率来控制配速？",
+      "sources": [
+        "第3章 L1166-L1180"
+      ]
+    },
+    {
+      "topic_id": "why-i-recovery-short",
+      "question": "I 训练的恢复为什么反而要短？",
+      "sources": [
+        "第4章 L1484",
+        "第4章 L1514",
+        "第4章 L1518"
+      ]
+    },
+    {
+      "topic_id": "why-i-reps-3-to-5",
+      "question": "I 训练为什么每个回合只跑 3~5 分钟？",
+      "sources": [
+        "第4章 L1480",
+        "第4章 L1484",
+        "第5章 L1784"
+      ]
+    },
+    {
+      "topic_id": "why-m-is-mental",
+      "question": "M 配速跑的生理作用大吗？",
+      "sources": [
+        "第4章 L1394"
+      ]
+    },
+    {
+      "topic_id": "why-novice-table",
+      "question": "表 5—3 和表 5—2 有什么区别？",
+      "sources": [
+        "第5章 L1810-L1812"
+      ]
+    },
+    {
+      "topic_id": "why-phase-4-drops-i",
+      "question": "阶段四为什么要停掉 I 训练？",
+      "sources": [
+        "第6章 L2040",
+        "第6章 L2034"
+      ]
+    },
+    {
+      "topic_id": "why-phase-order-e-r-i-t",
+      "question": "四个阶段为什么按 E→R→I→T 的顺序？",
+      "sources": [
+        "第6章 L2020",
+        "第6章 L2036",
+        "第6章 L2038"
+      ]
+    },
+    {
+      "topic_id": "why-r-needs-full-recovery",
+      "question": "R 跑为什么必须充分恢复？",
+      "sources": [
+        "第4章 L1571-L1573",
+        "第4章 L1581"
+      ]
+    },
+    {
+      "topic_id": "why-rest-is-training",
+      "question": "休息算不算偷懒？",
+      "sources": [
+        "第2章 L761",
+        "第15章 L3603",
+        "第15章 L3662"
+      ]
+    },
+    {
+      "topic_id": "why-vdot-update-slow",
+      "question": "比赛跑好了，为什么不能马上按新成绩提速？",
+      "sources": [
+        "第9章 L2605",
+        "第11章 L3009",
+        "第2章 L837"
+      ]
+    }
+  ],
+  "phases": [
+    {
+      "index": 1,
+      "code": "B/FIP",
+      "name": "基础与防伤",
+      "primary": [
+        "E"
+      ],
+      "maintain": [],
+      "dropped": [
+        "T",
+        "I",
+        "R"
+      ],
+      "summary": "以 E 跑打底，配合跨步跑与轻量阻力训练；目标是把抵御伤病的能力建起来，而不是练强度",
+      "source": "第6章 L1980、L2012-L2016"
+    },
+    {
+      "index": 2,
+      "code": "IQ",
+      "name": "初级高质量",
+      "primary": [
+        "R"
+      ],
+      "maintain": [
+        "E",
+        "L"
+      ],
+      "dropped": [
+        "I",
+        "T"
+      ],
+      "summary": "只引入一个新压力：速度。每周两次 R 训练，中间穿插轻松日；从 E 直接跳到 I 会同时增加两个压力，所以先练 R",
+      "source": "第6章 L1982、L2018-L2022"
+    },
+    {
+      "index": 3,
+      "code": "TQ",
+      "name": "过渡性高质量",
+      "primary": [
+        "I"
+      ],
+      "maintain": [
+        "R"
+      ],
+      "dropped": [],
+      "summary": "四个阶段里压力最大的一个，以 I 训练为主；长距离选手每周两次 I，短距离选手一次 I 并继续 R",
+      "source": "第6章 L1984、L2026-L2028"
+    },
+    {
+      "index": 4,
+      "code": "FQ",
+      "name": "最后的高质量",
+      "primary": [
+        "T"
+      ],
+      "maintain": [
+        "R"
+      ],
+      "dropped": [
+        "I"
+      ],
+      "summary": "转向 T 配速，并在 T 训练末尾加几个短 R；距离较长的选手在这一阶段停止 I 训练，让比赛承担 I 的作用",
+      "source": "第6章 L1986、L2030-L2034"
+    }
+  ]
+}

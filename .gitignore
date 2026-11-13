@@ -1,0 +1,27 @@
+# 书中内容一律不入库
+#
+# 这个仓库只放代码、方程、规则摘要与生成的数值。
+# 原书的正文、清洗后的全文、表格图片、切块数据、向量库都不进版本控制。
+
+*.epub
+*daniels_raw*
+daniels_raw*
+images/
+chroma_db/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# 测试写出来的临时文件
+_test_plan.json
+
+# 编辑器
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,54 @@
+name: CI
+
+# 只跑两件事：回归测试和独立校验。
+# 这个仓库零第三方依赖，所以不装任何包、不需要缓存，两个命令跑完。
+#
+# 加一路 Windows 不是为了多测一遍，是因为作者本机就是 Windows：
+# 交付物要在它实际被开发的环境里也跑得过。
+# 归档反例必须判不通过这件事，已经写在 tests/test_docs.py 里，不在这里重复。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Linux / Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: 回归测试
+        run: python -m unittest discover -s tests -t .
+
+      - name: 独立校验（第二套方程实现）
+        run: python pace_audit.py
+
+  test-windows:
+    name: Windows / 编码
+    runs-on: windows-latest
+    env:
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 回归测试
+        run: python -m unittest discover -s tests -t .
+
+      - name: 独立校验
+        run: python pace_audit.py

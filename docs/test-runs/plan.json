@@ -1,0 +1,26 @@
+{
+  "_comment": "2026-11 十轮测试里 agent 交出来的那张 18 周表，原样保留作反例。",
+  "_expect": "python -m daniels audit docs/test-runs/plan.json 必须退出码 2",
+  "sessions_per_week": 5,
+  "base_source": "assumed",
+  "weeks": [
+    {"week": 1,  "weekly_km": 24,   "sessions": [["L", 8]]},
+    {"week": 2,  "weekly_km": 24,   "sessions": [["L", 8]]},
+    {"week": 3,  "weekly_km": 24,   "sessions": [["L", 8]]},
+    {"week": 4,  "weekly_km": 24,   "sessions": [["L", 8]]},
+    {"week": 5,  "weekly_km": 24,   "sessions": [["L", 8]]},
+    {"week": 6,  "weekly_km": 32,   "sessions": [["L", 10]]},
+    {"week": 7,  "weekly_km": 32,   "sessions": [["L", 10]]},
+    {"week": 8,  "weekly_km": 32,   "sessions": [["L", 10]]},
+    {"week": 9,  "weekly_km": 32,   "sessions": [["L", 10]]},
+    {"week": 10, "weekly_km": 32,   "sessions": [["L", 10]]},
+    {"week": 11, "weekly_km": 40,   "sessions": [["L", 12]]},
+    {"week": 12, "weekly_km": 40,   "sessions": [["L", 12]]},
+    {"week": 13, "weekly_km": 48,   "sessions": [["L", 14]]},
+    {"week": 14, "weekly_km": 48,   "sessions": [["L", 14]]},
+    {"week": 15, "weekly_km": 48,   "sessions": [["L", 14]]},
+    {"week": 16, "weekly_km": 42,   "sessions": [["L", 11]]},
+    {"week": 17, "weekly_km": 34,   "sessions": [["L", 10]]},
+    {"week": 18, "weekly_km": 28.1, "sessions": [], "race_km": 21.1}
+  ]
+}
