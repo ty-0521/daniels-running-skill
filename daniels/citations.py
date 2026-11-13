@@ -82,6 +82,35 @@ RULE_AUDIT_LOG: Tuple[str, ...] = (
 )
 
 
+def _index() -> Dict[str, Citation]:
+    """全部出处，按 key 索引。规则与配速来源合在一张表里。
+
+    两张表必须合成一张：``search_citations`` 会返回 ``altitude`` 这种
+    配速来源的 key，如果 ``cite`` 只查规则表，就会出现「搜得到、查不回来」。
+    """
+    table: Dict[str, Citation] = {
+        rule_id: Citation(
+            key=rule_id,
+            chapter=rule.chapter,
+            lines=rule.lines,
+            summary=rule.summary,
+        )
+        for rule_id, rule in RULES.items()
+    }
+    for key in PROVENANCE:
+        chapter, lines, summary = PROVENANCE[key]
+        table.setdefault(
+            key,
+            Citation(
+                key=key,
+                chapter=str(chapter),
+                lines=str(lines),
+                summary=str(summary),
+            ),
+        )
+    return table
+
+
 def rules_by_id() -> Dict[str, Citation]:
     """全部规则，按 rule_id 索引。"""
     return {
@@ -96,21 +125,9 @@ def rules_by_id() -> Dict[str, Citation]:
 
 
 def citations() -> Tuple[Citation, ...]:
-    """全部出处，规则在前、配速来源在后，各自按 key 排序。"""
-    out: List[Citation] = [
-        rules_by_id()[rule_id] for rule_id in sorted(RULES)
-    ]
-    for key in sorted(PROVENANCE):
-        chapter, lines, summary = PROVENANCE[key]
-        out.append(
-            Citation(
-                key=key,
-                chapter=str(chapter),
-                lines=str(lines),
-                summary=str(summary),
-            )
-        )
-    return tuple(out)
+    """全部出处，按 key 排序。"""
+    table = _index()
+    return tuple(table[key] for key in sorted(table))
 
 
 def cite(rule_id: str) -> Citation:
@@ -134,15 +151,22 @@ def cite(rule_id: str) -> Citation:
     """
     if not isinstance(rule_id, str):
         raise TypeError(f"rule_id 必须是字符串，收到 {type(rule_id).__name__}")
-    key = rule_id.strip().upper()
-    table = rules_by_id()
+    key = rule_id.strip()
+    table = _index()
     if key in table:
         return table[key]
-    if not key.startswith("D-"):
-        key = f"D-{key}"
-        if key in table:
-            return table[key]
-    close = [k for k in table if key.split("-")[-1] in k]
+    upper = key.upper()
+    if upper in table:
+        return table[upper]
+    if not upper.startswith("D-"):
+        upper = f"D-{upper}"
+        if upper in table:
+            return table[upper]
+    # 配速来源的 key 是小写（altitude / novice），大小写不敏感地再试一次
+    lowered = {k.lower(): k for k in table}
+    if key.lower() in lowered:
+        return table[lowered[key.lower()]]
+    close = [k for k in table if key.split("-")[-1].upper() in k.upper()]
     hint = f"，相近的有 {close}" if close else ""
     raise KeyError(f"没有这条规则：{rule_id!r}{hint}")
 

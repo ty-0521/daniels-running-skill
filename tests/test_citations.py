@@ -135,6 +135,35 @@ class TestSearch(unittest.TestCase):
         self.assertEqual(d.search_citations("   "), [])
 
 
+class TestSearchAndCiteAgree(unittest.TestCase):
+    """搜索返回的 key，``cite()`` 必须查得回来。
+
+    配速来源的 key（``altitude`` / ``novice``）原来只在 ``citations()`` 里出现，
+    ``cite()`` 只查规则表——于是出现「搜得到、查不回来」。
+    """
+
+    def test_every_search_hit_can_be_looked_up(self) -> None:
+        for query in ("海拔", "新手", "摄氧量", "长跑", "门槛", "间歇", "加量"):
+            for hit in d.search_citations(query, 5):
+                with self.subTest(query=query, key=hit.key):
+                    back = d.cite(hit.key)
+                    self.assertEqual(back.label, hit.label)
+
+    def test_provenance_keys_are_citable(self) -> None:
+        self.assertEqual(d.cite("altitude").key, "altitude")
+        self.assertEqual(d.cite("novice").key, "novice")
+
+    def test_case_insensitive_for_provenance(self) -> None:
+        self.assertEqual(d.cite("ALTITUDE").key, "altitude")
+        self.assertEqual(d.cite("Altitude").key, "altitude")
+
+    def test_every_kind_of_citation_is_reachable(self) -> None:
+        """``citations()`` 里的每一条，``cite()`` 都要能取回来。"""
+        for item in d.citations():
+            with self.subTest(key=item.key):
+                self.assertEqual(d.cite(item.key).label, item.label)
+
+
 class TestManifest(unittest.TestCase):
     """清单里要能读到核对记录。"""
 
