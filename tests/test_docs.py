@@ -104,6 +104,8 @@ class TestDocLinks(unittest.TestCase):
         "docs/test-runs/README.md",
         "docs/test-runs/round2-branches.md",
         "docs/daniels-running-skill-实现路径.md",
+        "docs/使用手册.md",
+        "docs/开源清单.md",
     )
 
     def test_relative_links_resolve(self) -> None:
