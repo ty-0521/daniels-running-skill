@@ -84,6 +84,40 @@ class TestDocCodeBlocks(unittest.TestCase):
         self.assertIn("只能由 `audit_plan` 出具", text)
 
 
+class TestDocLinks(unittest.TestCase):
+    """文档里的相对链接必须指得到。
+
+    开源仓库里一个坏链接很难被读者容忍，也很难被作者自己发现。
+    """
+
+    MARKDOWN = (
+        "README.md",
+        "SKILL.md",
+        "docs/test-runs/README.md",
+        "docs/test-runs/round2-branches.md",
+        "docs/daniels-running-skill-实现路径.md",
+    )
+
+    def test_relative_links_resolve(self) -> None:
+        import re
+
+        broken = []
+        for name in self.MARKDOWN:
+            path = ROOT / name
+            if not path.exists():
+                continue
+            base = path.parent
+            text = path.read_text(encoding="utf-8")
+            for match in re.finditer(r"\]\(([^)#][^)]*)\)", text):
+                target = match.group(1).strip()
+                if target.startswith(("http://", "https://", "mailto:")):
+                    continue
+                resolved = (base / target).resolve()
+                if not resolved.exists():
+                    broken.append(f"{name} -> {target}")
+        self.assertEqual(broken, [], f"坏链接：{broken}")
+
+
 class TestManifestInDocs(unittest.TestCase):
     """文档里承诺的清单字段，manifest 里要真的有。"""
 
