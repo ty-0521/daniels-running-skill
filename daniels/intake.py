@@ -472,7 +472,21 @@ def _validate(key: str, value: Any) -> Any:
         return value
     if key == "altitude_m":
         if isinstance(value, str):
-            value = value.strip().rstrip("m米")
+            # 允许「1500」「1500m」「1500 米」三种写法。
+            # 早先这里只 strip 了单位却没转成数字，于是传字符串一定崩——
+            # 那段代码看起来像在支持带单位的写法，其实从来没生效过。
+            text = value.strip()
+            for suffix in ("米", "m", "M"):
+                if text.endswith(suffix):
+                    text = text[: -len(suffix)]
+                    break
+            text = text.strip()
+            try:
+                value = float(text)
+            except ValueError:
+                raise ValueError(
+                    f"海拔要写成数字，例如 1500 或 '1500m'，收到 {value!r}"
+                ) from None
         _require_number(key, value)
         if not 0 <= float(value) <= 8848:
             raise ValueError(f"海拔必须在 0~8848 m 之间，收到 {value}")

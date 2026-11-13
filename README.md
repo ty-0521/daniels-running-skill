@@ -35,7 +35,7 @@ daniels/
   explain.py     不带原文的解释词条
   manifest.py    对外清单
   __main__.py    命令行入口
-tests/           479 项回归测试
+tests/           回归测试（跑 discover 看当前条数）
 pace_audit.py    独立校验器（自带第二套方程实现），75 项检查
 SKILL.md         skill 描述文件（YAML frontmatter + 使用说明）
 skill.json       由 manifest() 导出的清单，供接入方读取
@@ -263,7 +263,7 @@ python -m daniels manifest -o skill.json
 ## 可验证性
 
 ```bash
-python -m unittest discover -s tests -t .   # 479 项
+python -m unittest discover -s tests -t .   # 会打印 Ran N tests
 python pace_audit.py                        # 75 项独立校验，失败时退出码 1
 ```
 
