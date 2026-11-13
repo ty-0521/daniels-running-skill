@@ -11,6 +11,7 @@ CLI 是对外契约的一部分，退出码尤其重要（脚本会据此判断�
 
 from __future__ import annotations
 
+import argparse
 import io
 import json
 import unittest
@@ -81,6 +82,90 @@ class TestExitCodeContract(unittest.TestCase):
         from daniels.__main__ import EXIT_ERROR, EXIT_FINDINGS, EXIT_OK
 
         self.assertEqual({EXIT_OK, EXIT_ERROR, EXIT_FINDINGS}, {0, 1, 2})
+
+
+class TestSubcommandSmoke(unittest.TestCase):
+    """每个子命令只用**必填参数**跑一遍，不许崩。
+
+    这一组是补的：``taper --weeks 12`` 曾经抛 TypeError，因为 ``--race-week``
+    在帮助里是可选的，代码却拿它直接做 ``range(1, None + 1)``。
+    类崩（TypeError 之类）不会被 ``main()`` 的 except 接住，会直接打穿到用户面前。
+    """
+
+    CASES = (
+        (("vdot", "5k", "20:00"), 0),
+        (("paces", "49.8"), 0),
+        (("cap", "64", "T"), 0),
+        (("check", "--weekly", "64", "L10"), 0),
+        (("plan", "24"), 0),
+        (("deload", "--base", "35", "--weeks", "12"), 0),
+        (("taper", "--weeks", "12"), 0),
+        (("progression", "30", "30", "--sessions", "4"), 0),
+        (
+            ("calendar", "--race", "2027-04-18", "--today", "2026-11-13"),
+            0,
+        ),
+        (("intake", "--goal", "21.1"), 1),  # need_info
+        (("cite", "D-T-02"), 0),
+        (("explain", "间歇"), 0),
+        (("topics",), 0),
+        (("manifest",), 0),
+    )
+
+    def test_each_subcommand_runs_with_required_args_only(self) -> None:
+        for argv, expected in self.CASES:
+            with self.subTest(command=argv[0]):
+                code, _, err = run(*argv)
+                self.assertNotIn("Traceback", err)
+                self.assertEqual(code, expected, f"{argv} -> {err}")
+
+    def test_every_subcommand_is_covered(self) -> None:
+        """新加子命令时，别忘了同时把它加进上面那张表。"""
+        from daniels.__main__ import build_parser
+
+        parser = build_parser()
+        for action in parser._actions:  # noqa: SLF001
+            if not isinstance(action, argparse._SubParsersAction):
+                continue
+            declared = set(action.choices)
+            covered = {case[0][0] for case in self.CASES} | {"audit"}
+            self.assertEqual(
+                declared - covered,
+                set(),
+                f"这些子命令没有冒烟测试：{sorted(declared - covered)}",
+            )
+
+
+class TestTaperOptionalRaceWeek(unittest.TestCase):
+    """``--race-week`` 在帮助里是可选的，缺省应当等于最后一周。
+
+    它原来会被当成 None 直接进 ``range(1, None + 1)``，
+    于是 ``taper --weeks 12`` 抛 TypeError——一个文档里写着的调用方式。
+    """
+
+    def test_without_race_week(self) -> None:
+        code, out, _ = run("taper", "--weeks", "12")
+        self.assertEqual(code, 0)
+        self.assertIn("第 12 周", out)
+        self.assertIn("比赛周", out)
+
+    def test_single_week_without_race_week(self) -> None:
+        code, out, _ = run("taper", "--weeks", "12", "--week", "11")
+        self.assertEqual(code, 0)
+
+    def test_json_without_race_week(self) -> None:
+        import json as _json
+
+        code, out, _ = run("taper", "--weeks", "12", "--json")
+        self.assertEqual(code, 0)
+        payload = _json.loads(out)
+        self.assertEqual(len(payload), 12)
+        self.assertTrue(payload[-1]["is_race_week"])
+
+    def test_race_week_out_of_range(self) -> None:
+        code, _, err = run("taper", "--weeks", "12", "--race-week", "20")
+        self.assertEqual(code, 1)
+        self.assertIn("race-week", err)
 
 
 class TestParseDistance(unittest.TestCase):

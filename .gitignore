@@ -25,3 +25,8 @@ _test_plan.json
 .vscode/
 .idea/
 *.swp
+
+# 临时脚本（agent 探查用，别进版本控制）
+_*.py
+_*.json
+_*.txt

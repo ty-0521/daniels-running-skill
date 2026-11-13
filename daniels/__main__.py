@@ -272,12 +272,19 @@ def cmd_deload(args: argparse.Namespace) -> int:
 
 
 def cmd_taper(args: argparse.Namespace) -> int:
+    # --race-week 是可选的，缺省就是最后一周。不补这个默认值的话，
+    # `taper --weeks 12` 会在 range(1, None + 1) 上直接崩。
+    race_week = args.race_week if args.race_week is not None else args.weeks
+    if not 1 <= race_week <= args.weeks:
+        raise CliError(
+            f"--race-week 必须在 1~{args.weeks} 之间，收到 {race_week}"
+        )
     if args.week is not None:
         weeks = [args.week]
     else:
-        weeks = list(range(1, args.race_week + 1))
+        weeks = list(range(1, race_week + 1))
     items = [
-        d.week_taper(w, args.weeks, race_week=args.race_week) for w in weeks
+        d.week_taper(w, args.weeks, race_week=race_week) for w in weeks
     ]
     if args.json:
         payload = (
