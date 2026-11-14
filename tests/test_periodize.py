@@ -5,7 +5,7 @@
 测试的是「默认拒绝」这个行为本身。
 
 运行：
-    cd D:\\training
+    cd D:\\daniels-running-skill
     python -m unittest discover -s tests -v
 """
 

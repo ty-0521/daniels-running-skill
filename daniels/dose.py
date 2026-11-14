@@ -233,7 +233,7 @@ class DoseCap:
     #: 拆分为巡航间歇时的累计时间下限（分钟）。
     min_minutes_when_split: float | None = None
     #: 实际套用的周跑量百分比。同一强度在不同周跑量下可能换档
-    #: （M 在 64 km 以下是 30%，以上是 20%），把实际档位带出来，
+    #: （M 少于 64 km 时是 30%，64 km 及以上是 20%），把实际档位带出来，
     #: 免得回答时凭记忆引一个错的百分比。
     ratio: float | None = None
 

@@ -5,7 +5,7 @@
 每条测试的注释标出出处，便于复查。
 
 运行：
-    cd D:\\training
+    cd D:\\daniels-running-skill
     python -m unittest discover -s tests -v
 """
 

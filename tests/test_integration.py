@@ -5,7 +5,7 @@
 给出一份可用的训练建议」，以及越界时会不会乖乖报错。
 
 运行：
-    cd D:\\training
+    cd D:\\daniels-running-skill
     python -m unittest discover -s tests -v
 """
 

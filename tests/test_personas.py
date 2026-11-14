@@ -7,7 +7,7 @@
 异常崩溃或荒谬的数值。
 
 运行：
-    cd D:\\training
+    cd D:\\daniels-running-skill
     python -m unittest discover -s tests -v
 """
 

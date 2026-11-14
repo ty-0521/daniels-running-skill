@@ -16,12 +16,16 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 __all__ = [
+    "Boundary",
+    "BOUNDARIES",
     "Topic",
     "TOPICS",
+    "boundary",
     "explain",
     "search",
     "topic_ids",
@@ -112,7 +116,7 @@ TOPICS: Dict[str, Topic] = {
     "why-150-min-cap": Topic(
         topic_id="why-150-min-cap",
         question="长距离跑为什么要封顶 150 分钟？",
-        keywords=("150分钟", "长距离", "l跑", "封顶", "上限", "2.5小时"),
+        keywords=("150分钟", "长距离", "长跑", "l跑", "封顶", "上限", "2.5小时"),
         answer=(
             "书中把单次定速跑的上限定在 150 分钟，理由是顶尖跑者跑 32 公里"
             "大约只要 2~2.5 小时；让跑得慢的人花 5 小时去凑同样的距离，"
@@ -163,7 +167,7 @@ TOPICS: Dict[str, Topic] = {
     "why-i-reps-3-to-5": Topic(
         topic_id="why-i-reps-3-to-5",
         question="I 训练为什么每个回合只跑 3~5 分钟？",
-        keywords=("i跑", "i配速", "间歇", "3分钟", "5分钟", "回合", "为什么"),
+        keywords=("i跑", "i配速", "i训练", "间歇", "3分钟", "5分钟", "回合", "为什么"),
         answer=(
             "从安静状态升到最大摄氧量大约需要 90~120 秒，回合太短就摸不到峰值；"
             "太长又撑不住，后面的回合会掉速。3~5 分钟是这两头之间的窗口，"
@@ -255,7 +259,7 @@ TOPICS: Dict[str, Topic] = {
     "l-cap-conflict": Topic(
         topic_id="l-cap-conflict",
         question="L 跑的上限有 25%、30%、60 分钟、150 分钟几种说法，到底用哪个？",
-        keywords=("l跑", "上限", "25%", "30%", "150分钟", "60分钟", "冲突"),
+        keywords=("l跑", "长跑", "上限", "25%", "30%", "150分钟", "60分钟", "冲突"),
         answer=(
             "按场景分派，不是任选一个：公路且周跑量低于 64 公里用 30%，"
             "达到 64 公里改用 25%，两种情况都与 150 分钟取小；"
@@ -333,7 +337,7 @@ TOPICS: Dict[str, Topic] = {
     "why-hr-not-pace": Topic(
         topic_id="why-hr-not-pace",
         question="能不能用心率来控制配速？",
-        keywords=("心率", "配速", "控制", "为什么", "热", "风", "坡"),
+        keywords=("心率", "配速", "控制", "为什么", "热", "风"),
         answer=(
             "要看目的是什么。热、风、坡、海拔都会让同一配速下的心率变化，"
             "盯着心率跑会让配速偏离计划；反过来，想跑准某个配速就不该看心率。"
@@ -370,7 +374,7 @@ TOPICS: Dict[str, Topic] = {
     "why-altitude-r-unchanged": Topic(
         topic_id="why-altitude-r-unchanged",
         question="高海拔时 R 配速要不要调慢？",
-        keywords=("高海拔", "r配速", "调慢", "要不要调", "不调", "怎么调"),
+        keywords=("高海拔", "r配速", "调慢", "不调", "怎么调"),
         answer=(
             "不用调，只需要增加两次之间的恢复时间。R 练的是速度与技术，跑不到"
             "目标速度就失去意义；而 I、T、M 则要按海拔下调。"
@@ -474,12 +478,96 @@ TOPICS: Dict[str, Topic] = {
         related=("why-hold-4-weeks", "why-rest-is-training"),
         computed_by="deload_weeks",
     ),
+    # ---------------- 赛前减量：逐周该去掉什么 ----------------
+    "taper-what-to-drop": Topic(
+        topic_id="taper-what-to-drop",
+        question="赛前几周该去掉什么？",
+        keywords=(
+            "赛前",
+            "减量",
+            "去掉",
+            "停掉",
+            "跨步跑",
+            "跑坡",
+            "taper",
+            "最后一周",
+        ),
+        answer=(
+            "赛前最后 3 周先去掉跨步跑，最后 2 周再去掉跑坡，赛前 1 周把长跑压到 90 分钟；"
+            "比赛周本身就是减量，不要再叠加一个周期性减量周。逐周推演用 week_taper()，"
+            "它按周给出这一周具体该去掉什么，以及哪条规则支持这个动作。"
+        ),
+        sources=("第14章 L3496",),
+        related=("no-periodic-deload", "why-rest-is-training"),
+        computed_by="week_taper",
+    ),
 }
 
 
 def topic_ids() -> Tuple[str, ...]:
     """全部词条的 id，按字典序。"""
     return tuple(sorted(TOPICS))
+
+
+@dataclass(frozen=True)
+class Boundary:
+    """一条「书里没有」的边界声明。
+
+    它不属于词条：词条回答书里写过的东西，边界回答书里**没写**的东西。
+    两者混在一起，就会出现「问跑步机坡度，答心率控制」这种自信的错答案。
+    """
+
+    boundary_id: str
+    question: str
+    keywords: Tuple[str, ...]
+    answer: str
+    basis: str
+    patterns: Tuple[str, ...] = ()
+
+    def as_dict(self) -> Dict[str, object]:
+        return {
+            "boundary_id": self.boundary_id,
+            "question": self.question,
+            "answer": self.answer,
+            "basis": self.basis,
+        }
+
+
+#: 明确支持不了的区域。命中这些，正确回答是「书里没有」，而不是最像的词条。
+BOUNDARIES: Tuple[Boundary, ...] = (
+    Boundary(
+        boundary_id="treadmill-grade",
+        question="跑步机坡度怎么换算成配速？",
+        keywords=("跑步机", "坡度", "爬坡", "皮带跑", "treadmill"),
+        answer=(
+            "书里的坡度—速度换算表是位图，只有 1 个可读锚点，还原不成可查的表。"
+            "能给的只有一条定性说法：跑步机上加 2% 坡度，大致抵掉户外跑的风阻。"
+            "具体换算本库不做——做了也是编的。"
+        ),
+        basis="manifest()['unsupported']：跑步机坡度—速度换算表",
+    ),
+    Boundary(
+        boundary_id="age-sex-adjust",
+        question="按年龄或性别调整配速，书里给吗？",
+        keywords=("性别", "男女", "女的", "男的", "女生", "男生"),
+        patterns=(r"\d+\s*岁",),
+        answer=(
+            "表 5—7 与表 5—8 是图片，没有可用真值，所以本库不给年龄、性别上的配速修正。"
+            "要按年龄调整，只能拿原书那两张表自己查；本库不会替你估一个数出来。"
+        ),
+        basis="manifest()['unsupported']：年龄与性别调整",
+    ),
+    Boundary(
+        boundary_id="weight-management",
+        question="体重、减重该怎么安排？",
+        keywords=("体重", "减肥", "减重", "减脂", "体脂", "瘦身"),
+        answer=(
+            "这一块不在本库范围内：它只做训练量、配速与周期，不含饮食与体重管理方案。"
+            "需要时找营养师或医生，别让一张周表替你做这个决定。"
+        ),
+        basis="SKILL.md「何时不用」：饮食、体重管理的具体方案",
+    ),
+)
 
 
 #: 检索时忽略的泛词。它们几乎出现在每个提问里，计分只会带来噪声。
@@ -503,7 +591,12 @@ def explain(topic_id: str) -> Topic:
     raise KeyError(f"没有这个词条：{topic_id!r}{hint}")
 
 
-def search(query: str, limit: int = 3) -> List[Topic]:
+def search(
+    query: str,
+    limit: int = 3,
+    min_score: int = 2,
+    min_coverage: float = 0.3,
+) -> List[Topic]:
     """按关键词检索词条。
 
     Parameters
@@ -512,6 +605,11 @@ def search(query: str, limit: int = 3) -> List[Topic]:
         自然语言提问或几个关键词。
     limit : int, optional
         最多返回几条，默认 3。
+    min_score : int, optional
+        命中关键词的**字数**下限，默认 2。低于它的命中不算命中。
+    min_coverage : float, optional
+        命中字数占提问（去空白后）的比例下限，默认 0.3。
+        只对 2~3 个字的弱命中生效：命中 4 个字以上算强证据，不再看比例。
 
     Returns
     -------
@@ -525,6 +623,20 @@ def search(query: str, limit: int = 3) -> List[Topic]:
     「为什么」「怎么」这类泛词在计分时被忽略，否则它们会把
     几乎所有词条都拉进结果。
 
+    **两道门槛是补上的，因为不加门槛时答案是错的：**
+
+    * 只要求「得分 > 0」时，一个汉字就能把词条顶出来——
+      问「跑步机坡度换算表怎么用」，`why-hr-not-pace` 的关键词里有「坡」，
+      于是回答了「能不能用心率控制配速」。
+    * 只看绝对得分时，两个字的泛词也能顶出来——
+      问「连续两场比赛怎么排」，`why-phase-4-drops-i` 的关键词里有「比赛」，
+      于是回答了「阶段四为什么停掉 I 训练」。
+
+    所以两条都要过：**命中至少两个字；弱命中（2~3 个字）还要覆盖提问的 30% 以上**。
+    「步频」两个字覆盖 100%，照常命中；「坡」一个字，直接不算；
+    「比赛」两个字落在 9 个字的问句里只有 22%，也不算。
+    命中 4 个字以上算强证据，不再看比例——那是问得啰嗦，不是问得偏。
+
     **匹配前会把提问里的空白全部去掉。** 用户习惯在数字两侧留空格，
     「只跑 3 到 5 分钟」里的「5 分钟」被空格切断，不去空白就匹配不到
     「5分钟」这个关键词，整句会变成零命中。
@@ -535,8 +647,14 @@ def search(query: str, limit: int = 3) -> List[Topic]:
         raise TypeError(f"query 必须是字符串，收到 {type(query).__name__}")
     if limit <= 0:
         raise ValueError(f"limit 必须为正，收到 {limit}")
+    if min_score < 1:
+        raise ValueError(f"min_score 必须为正，收到 {min_score}")
+    if not 0.0 <= min_coverage <= 1.0:
+        raise ValueError(f"min_coverage 必须在 [0, 1]，收到 {min_coverage}")
 
     text = "".join(query.split()).lower()
+    if not text:
+        return []
     scored: List[Tuple[int, Topic]] = []
     for topic in TOPICS.values():
         score = 0
@@ -545,11 +663,48 @@ def search(query: str, limit: int = 3) -> List[Topic]:
                 continue
             if keyword.lower() in text:
                 score += len(keyword)
-        if score > 0:
-            scored.append((score, topic))
+        if score < min_score:
+            continue
+        if score < 4 and score / len(text) < min_coverage:
+            continue
+        scored.append((score, topic))
 
     scored.sort(key=lambda item: (-item[0], item[1].topic_id))
     return [topic for _, topic in scored[:limit]]
+
+
+def boundary(query: str) -> Optional[Boundary]:
+    """提问落在「书里没有」的区域时，返回那条边界声明；否则返回 None。
+
+    这是检索层的闸门，和 :func:`daniels.intake` 的红线闸门同一个思路：
+    **支持不了的区域，正确回答是「没有」，不是最像的那条词条。**
+    调用方应当先问 :func:`boundary`，命中就直接把 ``answer`` 与
+    ``basis`` 说出去，不要再拿 :func:`search` 的结果顶上。
+
+    Examples
+    --------
+    >>> from daniels.explain import boundary
+    >>> boundary("跑步机坡度换算表怎么用").boundary_id
+    'treadmill-grade'
+    >>> boundary("T 配速什么感觉") is None
+    True
+    """
+    if not isinstance(query, str):
+        raise TypeError(f"query 必须是字符串，收到 {type(query).__name__}")
+
+    text = "".join(query.split()).lower()
+    if not text:
+        return None
+
+    best: Optional[Boundary] = None
+    best_score = 0
+    for item in BOUNDARIES:
+        score = sum(len(k) for k in item.keywords if k.lower() in text)
+        if any(re.search(pattern, text) for pattern in item.patterns):
+            score += 3
+        if score > best_score:
+            best, best_score = item, score
+    return best if best_score >= 2 else None
 
 
 def _bigrams(text: str) -> set:

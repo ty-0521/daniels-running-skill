@@ -20,7 +20,7 @@ from .dose import (
     VOLUME_SPLIT_KM,
     WEEKLY_VOLUME_SOFT_MAX_KM,
 )
-from .explain import TOPICS
+from .explain import BOUNDARIES, TOPICS
 from .periodize import DOCUMENTED_SPLITS, PHASES
 from .vdot import (
     ALT_MAX_M,
@@ -210,7 +210,7 @@ def manifest() -> Dict[str, object]:
             "audit": ["audit_plan", "plan_from_dict"],
             "intake": ["IntakeState", "paces_from_intake"],
             "citations": ["cite", "search_citations", "citations"],
-            "explain": ["explain_topic", "search", "topic_ids"],
+            "explain": ["explain_topic", "search", "boundary", "topic_ids"],
         },
         "constants": {
             "vdot_range": [VDOT_MIN, VDOT_MAX],
@@ -245,6 +245,7 @@ def manifest() -> Dict[str, object]:
             }
             for topic in sorted(TOPICS.values(), key=lambda t: t.topic_id)
         ],
+        "boundaries": [item.as_dict() for item in BOUNDARIES],
         "phases": [phase.as_dict() for phase in PHASES],
     }
 

@@ -518,7 +518,20 @@ def _parse_date(name: str, text: str):
 
 
 def cmd_explain(args: argparse.Namespace) -> int:
+    # 先过边界闸门：落在书里没有数据的区域，答「没有」比答「最像的那条」正确。
+    gate = d.boundary(args.query)
     hits = d.search(args.query, limit=args.limit)
+    if gate is not None:
+        print(f"■ {gate.question}")
+        print(f"  {gate.answer}")
+        print(f"  依据：{gate.basis}")
+        if hits:
+            print()
+            print("  相关但不是这个问题的答案：")
+            for topic in hits:
+                print(f"    · {topic.question}")
+        print()
+        return EXIT_OK
     if not hits:
         print(f"没有匹配的词条：{args.query!r}")
         guesses = d.explain_did_you_mean(args.query)
@@ -541,6 +554,10 @@ def cmd_explain(args: argparse.Namespace) -> int:
 def cmd_topics(args: argparse.Namespace) -> int:
     for topic_id in d.topic_ids():
         print(f"{topic_id:<32}{d.TOPICS[topic_id].question}")
+    print()
+    print("边界（书里没有数据，正确回答是「不做」）：")
+    for item in d.BOUNDARIES:
+        print(f"{item.boundary_id:<32}{item.question}")
     return EXIT_OK
 
 

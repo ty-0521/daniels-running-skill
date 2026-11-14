@@ -1,6 +1,6 @@
 {
   "name": "daniels-running-skill",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "《丹尼尔斯经典跑步训练法（第3版）》的可验证知识库：数值层给配速与上限，规则层给周期与合规检查，叙述层给不带原文的解释",
   "layers": {
     "vdot": [
@@ -58,6 +58,7 @@
     "explain": [
       "explain_topic",
       "search",
+      "boundary",
       "topic_ids"
     ]
   },
@@ -463,6 +464,13 @@
       ]
     },
     {
+      "topic_id": "taper-what-to-drop",
+      "question": "赛前几周该去掉什么？",
+      "sources": [
+        "第14章 L3496"
+      ]
+    },
+    {
       "topic_id": "tempo-vs-cruise",
       "question": "定速节奏跑和巡航间歇有什么区别？",
       "sources": [
@@ -648,6 +656,26 @@
         "第11章 L3009",
         "第2章 L837"
       ]
+    }
+  ],
+  "boundaries": [
+    {
+      "boundary_id": "treadmill-grade",
+      "question": "跑步机坡度怎么换算成配速？",
+      "answer": "书里的坡度—速度换算表是位图，只有 1 个可读锚点，还原不成可查的表。能给的只有一条定性说法：跑步机上加 2% 坡度，大致抵掉户外跑的风阻。具体换算本库不做——做了也是编的。",
+      "basis": "manifest()['unsupported']：跑步机坡度—速度换算表"
+    },
+    {
+      "boundary_id": "age-sex-adjust",
+      "question": "按年龄或性别调整配速，书里给吗？",
+      "answer": "表 5—7 与表 5—8 是图片，没有可用真值，所以本库不给年龄、性别上的配速修正。要按年龄调整，只能拿原书那两张表自己查；本库不会替你估一个数出来。",
+      "basis": "manifest()['unsupported']：年龄与性别调整"
+    },
+    {
+      "boundary_id": "weight-management",
+      "question": "体重、减重该怎么安排？",
+      "answer": "这一块不在本库范围内：它只做训练量、配速与周期，不含饮食与体重管理方案。需要时找营养师或医生，别让一张周表替你做这个决定。",
+      "basis": "SKILL.md「何时不用」：饮食、体重管理的具体方案"
     }
   ],
   "phases": [

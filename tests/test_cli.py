@@ -5,7 +5,7 @@ CLI 是对外契约的一部分，退出码尤其重要（脚本会据此判断�
 所以这里逐条断言退出码与关键输出。
 
 运行：
-    cd D:\\training
+    cd D:\\daniels-running-skill
     python -m unittest discover -s tests -v
 """
 
@@ -335,11 +335,26 @@ class TestExplainCommand(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("没有匹配", out)
 
+    def test_boundary_question_says_the_book_has_nothing(self) -> None:
+        """越界问题必须答「书里没有」，不许拿最像的词条顶上。"""
+        code, out, _ = run("explain", "跑步机坡度换算表怎么用")
+        self.assertEqual(code, 0)
+        self.assertIn("坡度", out)
+        self.assertIn("依据", out)
+        self.assertNotIn("心率", out, "不该把「心率控制」当成坡度问题的答案")
+
+    def test_boundary_does_not_shadow_a_real_topic(self) -> None:
+        code, out, _ = run("explain", "T 配速什么感觉", "--limit", "1")
+        self.assertEqual(code, 0)
+        self.assertIn("舒适的艰苦", out)
+
     def test_topics_listing(self) -> None:
         code, out, _ = run("topics")
         self.assertEqual(code, 0)
         self.assertIn("why-easy-is-slow", out)
         self.assertIn("l-cap-conflict", out)
+        self.assertIn("taper-what-to-drop", out)
+        self.assertIn("treadmill-grade", out, "topics 里也要能看见边界声明")
 
 
 class TestManifestCommand(unittest.TestCase):

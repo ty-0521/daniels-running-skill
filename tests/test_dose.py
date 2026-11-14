@@ -4,7 +4,7 @@
 真值优先用书中自己给出的算例；没有算例的，用正文里的明确数值。
 
 运行：
-    cd D:\\training
+    cd D:\\daniels-running-skill
     python -m unittest discover -s tests -v
 """
 
@@ -380,7 +380,7 @@ class TestAppliedRatio(unittest.TestCase):
     """实际套用的百分比档位——同一强度会在不同周跑量下换档。"""
 
     def test_marathon_switches_at_64km(self) -> None:
-        """M 在 64 km 以下是 30%，以上是 20%（第4章 L1392、第14章 L3480）。"""
+        """M 少于 64 km 时是 30%，64 km 及以上是 20%（第4章 L1392、第14章 L3480）。"""
         self.assertAlmostEqual(marathon_pace_cap(35.0).ratio, 0.30)
         self.assertAlmostEqual(marathon_pace_cap(63.9).ratio, 0.30)
         self.assertAlmostEqual(marathon_pace_cap(64.0).ratio, 0.20)

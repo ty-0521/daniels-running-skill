@@ -54,7 +54,7 @@ START = datetime.date(2026, 11, 30)                                   # 写死�
 
 ## 第三轮：豆包 agent 端到端（2026-11-13）
 
-不是人测的，是一个能跑 Python 的 agent（豆包工作模式，读 `D:\training` 这份工作副本）
+不是人测的，是一个能跑 Python 的 agent（豆包工作模式，读 `D:\daniels-running-skill` 这份工作副本）
 从零排出来的一张 18 周半马表。留着当**外部跑通的证据**。
 
 | 文件 | 说明 |

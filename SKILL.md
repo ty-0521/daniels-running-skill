@@ -261,7 +261,10 @@ status.questions   # 这一轮只问这些
 6. **推演减量**：`week_taper(周, 总周数, race_week=...)` 告诉你**这一周具体该去掉什么**——
    赛前 3 周去跨步跑、前 2 周去跑坡、前 1 周 L 压到 90 分钟。规则被引用过很多次，
    真的落到周上却很少；这一步就是把它落到周上，避免「引用了 L3496 又写跨步跑照做」。
-7. **解释**：`search(提问)` 取词条；命中为空就直说没把握，不要编。
+7. **解释**：**先过 `boundary(提问)`，没命中再 `search(提问)`。** 落在书里没有数据的
+   区域（跑步机坡度换算、年龄性别调整、体重管理）时，`boundary` 返回边界声明，
+   直接照着说「书里没有」，**不要再拿最像的词条顶上**——那会给出带出处的错答案。
+   `search` 命中为空就直说没把握，不要编。
 
 ## 已经踩过的坑（13 条）
 
@@ -278,12 +281,13 @@ status.questions   # 这一轮只问这些
 4. **超量按单次判，不是把一周的同类训练加起来。** 一周两次 6 km 的 T，
    错在「每次 6 km 各自超过 10%」，不是「合计 12 km 超过 10%」。
    说成后者会让用户以为这条规则管的是周总量。只有 I 另有「每周不超过两次」。
-5. **M 的百分比在 64 km 处分档。** 64 km 以下用 30%，以上才用 20%
+5. **M 的百分比在 64 km 处分档。** 少于 64 km 用 30%，**64 km 及以上**用 20%
    （第 4 章 L1392 是一般规则，第 14 章 L3480 是放宽条款）。
    一律按 20% 说会算错。报百分比时直接读 `cap.ratio`，别凭记忆。
 6. **减量周不是「按比例缩小课表」。** T 的 4.8 km 是**绝对下限**，不随跑量缩小。
    周跑量 60 km 减到 48 km 时 T 上限正好 4.8，再低就没有合规的 T 了。
-   用 `deload_impact(...).collapses` 判断，别硬缩。
+   判断有没有垮，用 `[i for i in deload_impact(...) if i.collapses]`——
+   它返回的是逐强度的 tuple，不是单个对象，写 `.collapses` 会 AttributeError。
 7. **加量有步长，不是「看着加」。** 第 11 章 L2956：每 3~4 周把**每次**跑的里程加 1.6 km。
    每周跑 4 次就是每个周期最多 +6.4 km。写完周表跑 `check_progression`，
    别自己宣布合规——它连「两次加量隔得太近」都能查出来。
@@ -340,6 +344,11 @@ d.weeks_until(today, race_date)              # (22, 2)
 d.cite("D-T-02").label                       # '第14章 L3478'
 d.search_citations("长跑")                    # 中文别称也能搜
 
+# 解释：先过边界，再检索
+d.boundary("跑步机坡度换算表").boundary_id   # 'treadmill-grade'：书里没有，别硬答
+d.boundary("T 配速什么感觉")                 # None：这条在范围内，继续 search
+[p.topic_id for p in d.search("T 配速什么感觉")][0]   # 't-comfortably-hard'
+
 # 整表裁决：六类检查全过才说合规
 result = d.audit_plan(weeks, sessions_per_week=5, base_source="user")
 result.passed                                # 只有这一处可以出「合规」
@@ -371,6 +380,7 @@ python <skill目录>/daniels_cli.py intake --goal 21.1 --date 2027-03-21 --weekl
 python <skill目录>/daniels_cli.py cite D-T-02              # '第14章 L3478'
 python <skill目录>/daniels_cli.py cite --search 长跑
 python <skill目录>/daniels_cli.py explain "定速节奏跑和巡航间歇的区别"
+python <skill目录>/daniels_cli.py explain "跑步机坡度换算表"   # 越界：答「书里没有」，不给最像的词条
 python <skill目录>/daniels_cli.py manifest -o skill.json
 ```
 
@@ -402,8 +412,9 @@ python <skill目录>/daniels_cli.py manifest -o skill.json
 | 区域 | 行为 |
 |---|---|
 | VDOT < 20 或 > 85 | 抛 `VdotRangeError` |
-| 年龄与性别调整 | 不实现（表 5—7/5—8 无可用真值） |
-| 跑步机坡度换算 | 只有「坡度加 2% 补风阻」这一条定性规则 |
+| 年龄与性别调整 | 不实现（表 5—7/5—8 无可用真值）；`boundary()` 返回 `age-sex-adjust` |
+| 跑步机坡度换算 | 只有「坡度加 2% 补风阻」这一条定性规则；`boundary()` 返回 `treadmill-grade` |
+| 体重与饮食管理 | 不在范围内；`boundary()` 返回 `weight-management` |
 | 训练计划表逐字课目 | 按规则生成，声明非逐字一致 |
 | 海拔 > 2500 米 | 抛 `AltitudeRangeError` |
 | 未记录的训练季长度 | 抛 `PhaseLengthError`，除非显式允许推导 |

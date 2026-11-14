@@ -16,7 +16,7 @@
 """
 
 # 版本号必须在其他导入之前定义：manifest 会从这里取。
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 from .dose import (  # noqa: F401
     INTENSITIES,
@@ -76,8 +76,11 @@ from .deload import (  # noqa: F401
     t_peak_km,
 )
 from .explain import (  # noqa: F401
+    BOUNDARIES,
     TOPICS,
+    Boundary,
     Topic,
+    boundary,
     did_you_mean as explain_did_you_mean,
     explain as explain_topic,
     search,
@@ -255,8 +258,11 @@ __all__ = [
     "Status",
     "paces_from_intake",
     # explain 层
+    "BOUNDARIES",
     "TOPICS",
+    "Boundary",
     "Topic",
+    "boundary",
     "explain_did_you_mean",
     "explain_topic",
     "search",

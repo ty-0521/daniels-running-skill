@@ -19,17 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-关于数据来源与版权的补充说明：
-
-本仓库的代码、方程实现、规则摘要、误差统计与解释词条均为原创。
-《丹尼尔斯经典跑步训练法（第3版）》的正文、表格图片与清洗后的全文
-不包含在本仓库中，也不通过任何接口对外提供。
-
-仓库中的数值分两类：
-1. 由 Daniels–Gilbert 回归方程计算得出；
-2. 原书正文中可以直接读到的算例，仅作为测试真值与误差校验使用。
-
-使用方法与规则均标注章号与行号，读者需自行持有原书核对。

@@ -9,7 +9,7 @@
 >
 > | 本文的设想 | 实际做法 | 原因 |
 > |---|---|---|
-> | 叙述层用 Chroma + 嵌入模型做 RAG | 关键词检索，30 个词条（`explain.search`） | 做 RAG 要把原文切块入库，和「原文不进仓库」直接冲突 |
+> | 叙述层用 Chroma + 嵌入模型做 RAG | 关键词检索，33 个词条 + 3 条边界声明（`explain.search` / `explain.boundary`） | 做 RAG 要把原文切块入库，和「原文不进仓库」直接冲突 |
 > | `pip install` 分发的库 | skill 目录 + `daniels_cli.py` 启动器 | 交付形态是 skill 不是包，少一个打包面 |
 > | 规则层含「训练压力计分」 | 只做上限与周期，没有压力计分 | 书中没有可复现的计分公式，做出来就是编 |
 > | 三层架构（数值 / 规则 / 叙述） | 五层 + 两道门禁（`intake` / `audit`） | 实测发现光有知识不够，还得有「不许开口」和「不许说合规」 |
@@ -293,7 +293,7 @@ daniels-running-skill/
 ### 阶段 0：环境（半天）
 
 ```powershell
-cd D:\training
+cd D:\daniels-running-skill
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -595,7 +595,7 @@ if __name__ == "__main__":
 
 ## 附录 B：下一步该做的三件事
 
-1. 在 `D:\training` 建虚拟环境，用官方索引装依赖（阶段 0）。
+1. 在 `D:\daniels-running-skill` 建虚拟环境，用官方索引装依赖（阶段 0）。
 2. 跑附录 A 的脚本，得到 `vdot_table.json`，翻书核对 5 个抽样点。
 3. 拿第 3.2 节的 `lyhjeremy/marathon-strategy-rag` 读一遍 `src/numcheck.py`（99 行）和 `src/retriever.py`（47 行），MIT 协议，这是你第 4 阶段的现成骨架。
 

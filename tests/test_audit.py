@@ -6,7 +6,7 @@
 "能查出问题"，而是"查不出问题的时候不许说合规"。
 
 运行：
-    cd D:\\training
+    cd D:\\daniels-running-skill
     python -m unittest discover -s tests -v
 """
 

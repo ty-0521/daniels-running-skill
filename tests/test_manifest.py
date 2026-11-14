@@ -76,6 +76,17 @@ class TestRulesAndTopics(unittest.TestCase):
 
         self.assertEqual(len(manifest()["topics"]), len(TOPICS))
 
+    def test_boundaries_listed(self) -> None:
+        from daniels.explain import BOUNDARIES
+
+        data = manifest()
+        self.assertIn("boundaries", data)
+        self.assertEqual(len(data["boundaries"]), len(BOUNDARIES))
+        self.assertIn("boundary", data["layers"]["explain"])
+        for item in data["boundaries"]:
+            with self.subTest(boundary=item["boundary_id"]):
+                self.assertTrue(item["basis"], "边界必须带依据")
+
     def test_topics_sorted(self) -> None:
         ids = [t["topic_id"] for t in manifest()["topics"]]
         self.assertEqual(ids, sorted(ids))

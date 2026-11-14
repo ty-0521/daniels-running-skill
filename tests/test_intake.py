@@ -5,7 +5,7 @@
 这一组用例就是把那些"开口"钉死。
 
 运行：
-    cd D:\\training
+    cd D:\\daniels-running-skill
     python -m unittest discover -s tests -v
 """
 

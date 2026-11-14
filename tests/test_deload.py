@@ -13,7 +13,7 @@
 所以这里的断言不是「函数能跑」，而是**这些具体的错不能再出现**。
 
 运行：
-    cd D:\\training
+    cd D:\\daniels-running-skill
     python -m unittest discover -s tests -v
 """
 

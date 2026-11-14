@@ -4,7 +4,7 @@
 这一层不产生数值，所以测试重点是数据完整性（出处、交叉引用）与检索行为。
 
 运行：
-    cd D:\\training
+    cd D:\\daniels-running-skill
     python -m unittest discover -s tests -v
 """
 
@@ -13,7 +13,14 @@ from __future__ import annotations
 import unittest
 
 import daniels
-from daniels.explain import TOPICS, explain, search, topic_ids
+from daniels.explain import (
+    BOUNDARIES,
+    TOPICS,
+    boundary,
+    explain,
+    search,
+    topic_ids,
+)
 
 
 class TestTopicIntegrity(unittest.TestCase):
@@ -216,6 +223,107 @@ class TestConflictTopics(unittest.TestCase):
         """「百分比是单次上限」必须单独成条，这是最容易误解的一条。"""
         answer = TOPICS["percent-is-per-session"].answer
         self.assertIn("单次", answer)
+
+
+class TestSearchPrecision(unittest.TestCase):
+    """实测里被问出来的错答案，逐条钉住。
+
+    这五条都不是刁难：越界问题（坡度、年龄、性别）本该答「书里没有」，
+    而「长跑能跑多长」是正常问题，之前却零命中。
+    根因是「得分 > 0 就算命中」，一个汉字或两个泛词就能把词条顶出来。
+    """
+
+    def test_out_of_scope_questions_do_not_get_topic_answers(self) -> None:
+        queries = (
+            "跑步机坡度换算表怎么用",
+            "坡度",
+            "我今年 45 岁，配速要不要调整",
+            "连续两场比赛怎么排",
+            "比赛周撞上了质量课怎么办",
+        )
+        for query in queries:
+            with self.subTest(query=query):
+                self.assertEqual(search(query), [], "越界问题不该拿词条顶上")
+
+    def test_long_run_question_hits_the_cap_topics(self) -> None:
+        ids = [t.topic_id for t in search("长跑能跑多长")]
+        self.assertIn("l-cap-conflict", ids)
+        self.assertIn("why-150-min-cap", ids)
+
+    def test_taper_question_hits_the_taper_topic(self) -> None:
+        self.assertEqual(
+            search("赛前两周该去掉什么")[0].topic_id, "taper-what-to-drop"
+        )
+        self.assertEqual(
+            search("最后一周还要跑跨步吗")[0].topic_id, "taper-what-to-drop"
+        )
+
+    def test_min_score_is_a_gate(self) -> None:
+        self.assertTrue(search("比赛", min_score=2))
+        self.assertEqual(search("比赛", min_score=3), [])
+
+    def test_invalid_min_score(self) -> None:
+        with self.assertRaises(ValueError):
+            search("vdot", min_score=0)
+
+    def test_invalid_min_coverage(self) -> None:
+        for bad in (-0.1, 1.5):
+            with self.subTest(coverage=bad):
+                with self.assertRaises(ValueError):
+                    search("vdot", min_coverage=bad)
+
+
+class TestBoundary(unittest.TestCase):
+    """边界闸门：支持不了的地方，答「没有」而不是「最像的」。"""
+
+    def test_registry_integrity(self) -> None:
+        ids = [item.boundary_id for item in BOUNDARIES]
+        self.assertEqual(len(ids), len(set(ids)), "boundary_id 不能重复")
+        self.assertGreaterEqual(len(BOUNDARIES), 3)
+        for item in BOUNDARIES:
+            with self.subTest(boundary=item.boundary_id):
+                self.assertTrue(item.question.endswith("？"))
+                self.assertTrue(item.keywords or item.patterns)
+                self.assertTrue(item.basis, "边界必须写清依据")
+                self.assertGreater(len(item.answer), 20)
+
+    def test_treadmill_question(self) -> None:
+        hit = boundary("跑步机坡度换算表怎么用")
+        self.assertIsNotNone(hit)
+        self.assertEqual(hit.boundary_id, "treadmill-grade")
+
+    def test_single_keyword_still_hits_boundary(self) -> None:
+        """边界没有「覆盖率」问题：一个「坡度」就够。"""
+        self.assertEqual(boundary("坡度").boundary_id, "treadmill-grade")
+
+    def test_age_question(self) -> None:
+        hit = boundary("我今年 45 岁，配速要不要调整")
+        self.assertEqual(hit.boundary_id, "age-sex-adjust")
+
+    def test_sex_question(self) -> None:
+        self.assertEqual(
+            boundary("我是女的，VDOT 要减多少").boundary_id, "age-sex-adjust"
+        )
+
+    def test_weight_question(self) -> None:
+        self.assertEqual(boundary("体重多少最合适").boundary_id, "weight-management")
+
+    def test_normal_questions_have_no_boundary(self) -> None:
+        for query in ("T 配速什么感觉", "I 训练为什么只跑 3 到 5 分钟"):
+            with self.subTest(query=query):
+                self.assertIsNone(boundary(query))
+
+    def test_age_regex_does_not_swallow_the_hrmax_topic(self) -> None:
+        """「220 减年龄」问的是心率公式，不是年龄调整。"""
+        self.assertIsNone(boundary("为什么不能用 220 减年龄估最大心率"))
+        self.assertEqual(
+            search("为什么不能用 220 减年龄估最大心率")[0].topic_id,
+            "why-220-age-fails",
+        )
+
+    def test_invalid_query_type(self) -> None:
+        with self.assertRaises(TypeError):
+            boundary(123)  # type: ignore[arg-type]
 
 
 if __name__ == "__main__":
